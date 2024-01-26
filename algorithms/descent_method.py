@@ -5,6 +5,7 @@ from torch._C import float64
 from torch.autograd.functional import hessian
 from utils.calculate import line_search,subspace_line_search,get_minimum_eigenvalue
 from utils.logger import logger
+import os
 
 class optimization_solver:
   def __init__(self,backward_mode = True,device = "cpu",dtype = torch.float64) -> None:
@@ -62,7 +63,7 @@ class optimization_solver:
   def check_norm(self,d,eps):
     return torch.linalg.norm(d) <= eps
   
-  def run(self,f,x0,iteration,params):
+  def run(self,f,x0,iteration,params,save_path,log_interval = -1):
     self.__run_init__(f,x0,iteration)
     self.__check_params__(params)
     torch.cuda.synchronize()
@@ -77,7 +78,14 @@ class optimization_solver:
         torch.cuda.synchronize()
         self.save_values["time"][i+1] = time.time() - start_time
         self.save_values["func_values"][i+1] = self.func(self.xk)
+        if (i+1)%log_interval == 0 & log_interval != -1:
+          logger.info(f'{i+1}: {self.save_values["func_values"][i+1]}')
+          self.save_results(save_path)
     return
+  
+  def save_results(self,save_path):
+    for k,v in self.save_values:
+      torch.save(v.cpu(),os.path.join(save_path,v+".pth"))
   
   def __update__(self,d):
     with torch.no_grad():
@@ -311,7 +319,7 @@ class BacktrackingProximalGD(optimization_solver):
     self.prox = prox
     return super().__run_init__(f, x0, iteration)
   
-  def run(self, f, prox, x0, iteration, params):
+  def run(self, f, prox, x0, iteration, params,save_path,log_interval=-1):
     self.__run_init__(f,prox, x0,iteration)
     self.__check_params__(params)
     torch.cuda.synchronize()
@@ -326,6 +334,9 @@ class BacktrackingProximalGD(optimization_solver):
         torch.cuda.synchronize()
         self.save_values["time"][i+1] = time.time() - start_time
         self.save_values["func_values"][i+1] = self.func(self.xk)
+        if (i+1)%log_interval == 0 & log_interval != -1:
+          logger.info(f'{i+1}: {self.save_values["func_values"][i+1]}')
+          self.save_results(save_path)
     return
   
 

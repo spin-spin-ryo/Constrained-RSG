@@ -31,3 +31,9 @@ DYNAMIC_BARRIER = "Dynamic"
 PRIMALDUAL = "PrimalDual"
 RSG_LC = "proposed_linear"
 RSG_NC = "proposed_nonlinear"
+
+# ディレクトリ名の形式 
+# results/{objectives}/{param}@{value}~{param}@{value}~..../{constraints}/{param}@{value}~{param}@{value}~..../{solver_name}/{param}@{value}~{param}@{value}
+
+DISTINCT_PARAM_VALUE = "@"
+DISTINCT_PARAMS = "~"

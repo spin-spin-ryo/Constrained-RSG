@@ -9,42 +9,60 @@ import os
 
 def generate_objective(function_name,function_properties):
     if function_name == QUADRATIC:
-        f = generate_quadratic(function_properties[function_name])
+        f = generate_quadratic(function_properties)
     elif function_name == SPARSEQUADRATIC:
-        f = generate_sparse_quadratic(function_properties[function_name])
+        f = generate_sparse_quadratic(function_properties)
     elif function_name == MATRIXFACTORIZATION:
-        f = generate_matrix_factorization(function_properties[function_name])
+        f = generate_matrix_factorization(function_properties)
     elif function_name == MATRIXFACTORIZATION_COMPLETION:
-        f = generate_matrix_factorization_completion(function_properties[function_name])
+        f = generate_matrix_factorization_completion(function_properties)
     elif function_name == LEASTSQUARE:
-        f = generate_least_square(function_properties[function_name])
+        f = generate_least_square(function_properties)
     elif function_name == MLPNET:
-        f = generate_mlpnet(function_properties[function_name])
+        f = generate_mlpnet(function_properties)
     elif function_name == CNN:
-        f = generate_cnn(function_properties[function_name])
+        f = generate_cnn(function_properties)
     else:
         raise ValueError(f"{function_name} is not implemented.")
     return f
 
 def generate_constraints(constraints_name, constraints_properties):
     if constraints_name == POLYTOPE:
-        constraints = generate_polytope(constraints_properties[constraints_name])
+        constraints = generate_polytope(constraints_properties)
     elif constraints_name == NONNEGATIVE:
-        constraints = generate_nonnegative(constraints_properties[constraints_name])
+        constraints = generate_nonnegative(constraints_properties)
     elif constraints_name == QUADRATIC:
-        constraints = generate_quadratic_constraints(constraints_properties[constraints_name])
+        constraints = generate_quadratic_constraints(constraints_properties)
     elif constraints_name == FUSEDLASSO:
-        constraints = generate_fusedlasso(constraints_properties[constraints_name])
+        constraints = generate_fusedlasso(constraints_properties)
     elif constraints_name == BALL:
-        constraints = generate_ball(constraints_properties[constraints_name])
+        constraints = generate_ball(constraints_properties)
     elif constraints_name == HUBER:
-        constraints = generate_huber(constraints_properties[constraints_name])
+        constraints = generate_huber(constraints_properties)
     else:
         raise ValueError(f"{constraints_name} is not implemented.")
     return constraints    
 
-def generate_initial_points(func,function_name,constraints_name):
-    return
+def generate_initial_points(func,function_name,constraints_name,function_properties):
+    dim = func.get_dimension()
+    # 非負制約の時のみすべて1
+    if constraints_name == NONNEGATIVE:
+        x0 = torch.zeros(dim)
+        return x0
+    
+    if function_name == MLPNET:
+        if function_properties["data_name"] == "mnist":
+            # dim:669706
+            x0 = torch.load(os.path.join(DATAPATH,"mnist","mlpnet","init_param.pth"))
+            return x0
+    
+    if function_name == CNN:
+        if function_properties["data_name"] == "mnist":
+            # dim:33738
+            x0 = torch.load(os.path.join(DATAPATH,"mnist","cnn","init_param.pth"))
+            return x0
+    x0 = torch.ones(dim)
+    return x0
 
 def generate_quadratic(properties):
     dim = int(properties["dim"])
@@ -248,3 +266,23 @@ def generate_huber(properties):
     params = [delta,threshold]
     con = Huber(params)
     return con
+
+
+objective_properties_key ={
+	QUADRATIC:["dim","convex","data_name"],
+	SPARSEQUADRATIC:["dim","data_name"],
+  MATRIXFACTORIZATION:["data_name","rank"],
+  MATRIXFACTORIZATION_COMPLETION:["data_name","rank"],
+  LEASTSQUARE:["data_name","data_size","dim"],
+  MLPNET: ["data_name","layers_size"],
+  CNN: ["data_name","layers_size"]
+}
+
+constraints_properties_key = {
+    POLYTOPE:["data_name","dim","constraints_num"],
+    NONNEGATIVE:["dim"],
+    QUADRATIC:["data_name","dim","constraints_num"],
+    FUSEDLASSO: ["threshold1","threshold2"],
+    BALL:["ord","threshold"],
+    HUBER:["delta","threshold"]
+}

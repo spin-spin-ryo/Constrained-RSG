@@ -26,8 +26,11 @@ def get_solver(solver_name,backward_mode):
         solver = PrimalDualInteriorPointMethod(backward_mode)
     elif solver_name == RSG_LC:
         solver = RSGLC(backward_mode)
-    elif solver_ == RSG_NC:
+    elif solver_name == RSG_NC:
         solver = RSGNC(backward_mode)
     else:
         raise ValueError(f"{solver_name} is not implemetend.")
     return solver
+
+def get_params_from_config(config):
+    

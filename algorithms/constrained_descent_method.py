@@ -4,6 +4,7 @@ import numpy as np
 from algorithms.descent_method import optimization_solver,BacktrackingAcceleratedProximalGD
 from torch._C import float64
 from utils.calculate import nonnegative_projection
+from utils.logger import logger
 
 BARRIERTYPE1 = "values"
 BARRIERTYPE2 = "grads" 
@@ -13,7 +14,7 @@ class constrained_optimization_solver(optimization_solver):
     super().__init__(backward_mode,device,dtype)
     self.con = None
   
-  def run(self, f, con, x0, iteration, params):
+  def run(self, f, con, x0, iteration, params,save_path,log_interval=-1):
     self.__run_init__(f,con,x0,iteration)
     self.__check_params__(params)
     torch.cuda.synchronize()
@@ -28,6 +29,9 @@ class constrained_optimization_solver(optimization_solver):
         torch.cuda.synchronize()
         self.save_values["time"][i+1] = time.time() - start_time
         self.save_values["func_values"][i+1] = self.func(self.xk)
+        if (i+1)%log_interval == 0 & log_interval != -1:
+          logger.info(f'{i+1}: {self.save_values["func_values"][i+1]}')
+          self.save_results(save_path)
     return
   
   def __run_init__(self, f,con, x0, iteration):
