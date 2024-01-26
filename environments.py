@@ -1,0 +1,2 @@
+DATAPATH = "./data"
+RESULTPATH = "./results"
