@@ -35,6 +35,15 @@ def subspace_line_search(xk,func,projected_grad,dk,Mk,alpha,beta,loss = None):
                 lr *= beta 
     return lr
 
+def generate_semidefinite(dim,rank,device):
+   P = torch.randn(dim,rank,device = device)
+   return P@P.transpose(0,1)/dim
+
+def generate_symmetric(dim,device):
+   P = torch.randn(dim,dim,device = device)
+   return (P + P.transpose(0,1))/2
+
+
 def nonnegative_projection(x,t):
     y = x.detach().clone()
     y[y<0]=0

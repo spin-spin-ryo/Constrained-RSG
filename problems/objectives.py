@@ -16,12 +16,14 @@ class Objective:
   
   def set_type(self,dtype):
     for i in range(len(self.params)):
-      self.params[i] = self.params[i].to(dtype)
+      if isinstance(self.params[i],torch.Tensor):
+        self.params[i] = self.params[i].to(dtype)
     return
   
   def set_device(self,device):
     for i in range(len(self.params)):
-      self.params[i] = self.params[i].to(device)
+      if isinstance(self.params[i],torch.Tensor):
+        self.params[i] = self.params[i].to(device)
     return
   
 class QuadraticFunction(Objective):

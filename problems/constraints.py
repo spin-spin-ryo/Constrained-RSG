@@ -10,7 +10,8 @@ class constraints:
     def set_type(self,dtype):
         # set tensor dtype in params
         for i in range(len(self.params)):
-            self.params[i] = self.params[i].to(dtype)
+            if isinstance(self.params[i],torch.Tensor):
+                self.params[i] = self.params[i].to(dtype)
         return
     
     def get_number_of_constraints(self):
@@ -23,7 +24,8 @@ class constraints:
     def set_device(self,device):
         # set tensor device in params
         for i in range(len(self.params)):
-            self.params[i] = self.params[i].to(device)
+            if isinstance(self.params[i],torch.Tensor):
+                self.params[i] = self.params[i].to(device)
         return
  
     def is_feasible(self,x):
@@ -132,7 +134,7 @@ class Fused_Lasso(constraints):
     
 class Ball(constraints):
     def __call__(self, x):
-        return ( torch.linalg.norm(x,ord = self.params[1])**self.params[1]-self.params[0]).reshape(1)-self.error
+        return ( torch.linalg.norm(x,ord = self.params[1])**self.params[1]-self.params[0]).reshape(1)
     def grad(self,x):
         y = x.detach().clone()
         y.requires_grad_(True)
