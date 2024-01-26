@@ -1,7 +1,7 @@
 import torch
 import time
 import numpy as np
-from constrained_optimization.algorithms.descent_method import optimization_solver,BacktrackingAcceleratedProximalGD
+from algorithms.descent_method import optimization_solver,BacktrackingAcceleratedProximalGD
 from torch._C import float64
 from utils.calculate import nonnegative_projection
 
@@ -9,10 +9,38 @@ BARRIERTYPE1 = "values"
 BARRIERTYPE2 = "grads" 
 
 class constrained_optimization_solver(optimization_solver):
-  def __init__(self,f,con,backward_mode = True,device = "cpu",dtype = torch.float64) -> None:
-    super().__init__(f,backward_mode,device,dtype)
+  def __init__(self,backward_mode = True,device = "cpu",dtype = torch.float64) -> None:
+    super().__init__(backward_mode,device,dtype)
+    self.con = None
+  
+  def run(self, f, con, x0, iteration, params):
+    self.__run_init__(f,con,x0,iteration)
+    self.__check_params__(params)
+    torch.cuda.synchronize()
+    start_time = time.time()
+    for i in range(iteration):
+      self.__clear__()
+      if not self.finish:
+        self.__iter_per__(params)
+      else:
+        break
+      with torch.no_grad():
+        torch.cuda.synchronize()
+        self.save_values["time"][i+1] = time.time() - start_time
+        self.save_values["func_values"][i+1] = self.func(self.xk)
+    return
+  
+  def __run_init__(self, f,con, x0, iteration):
+    self.f = f
     self.con = con
-    
+    self.xk = x0.detach().clone()
+    self.save_values["func_values"] = torch.zeros(iteration+1)
+    self.save_values["time"] = torch.zeros(iteration+1)
+    self.finish = False
+    with torch.no_grad():
+      self.save_values["func_values"][0] = self.func(self.xk)
+
+
   def evaluate_constraints_values(self,x):
     return self.con(x)
   
@@ -107,14 +135,14 @@ class DynamicBarrierGD(constrained_optimization_solver):
 
 
   def solve_subproblem_by_APGD(self,func,prox,x0,sub_problem_eps,inner_iteration):
-    solver = BacktrackingAcceleratedProximalGD(f=func,
-                                               prox=prox,
-                                               device=self.device,
+    solver = BacktrackingAcceleratedProximalGD(device=self.device,
                                                dtype = self.dtype)
     params = {"restart":True,
               "beta":0.8,
               "eps":sub_problem_eps}
     solver.run(x0=x0,
+               f=func,
+               prox=prox,
                iteration=inner_iteration,
                params=params)
     return solver.xk

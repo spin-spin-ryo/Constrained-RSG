@@ -1,3 +1,33 @@
 DATAPATH = "./data"
 RESULTPATH = "./results"
 DEVICE = "cpu"
+
+# 目的関数一覧
+QUADRATIC = "Quadratic"
+SPARSEQUADRATIC = "SparseQuadratic"
+MATRIXFACTORIZATION = "MatrixFactorization"
+MATRIXFACTORIZATION_COMPLETION = "MatrixFactorization_Completions"
+LEASTSQUARE = "LeastSquare"
+MLPNET = "MLPNET"
+CNN = "CNN"
+
+# 制約一覧
+POLYTOPE = "Polytope"
+NONNEGATIVE = "NonNegative"
+FUSEDLASSO = "FusedLasso"
+BALL = "Ball"
+HUBER = "Huber"
+
+# アルゴリズム手法一覧
+GRADIENT_DESCENT = "GD"
+SUBSPACE_GRADIENT_DESCENT = "SGD"
+ACCELERATED_GRADIENT_DESCENT = "AGD"
+NEWTON = "Newton"
+LIMITED_MEMORY_NEWTON = "LNM"
+PROXIMAL_GRADIENT_DESCENT = "PGD
+ACCELERATED_PROXIMAL_GRADIENT_DESCENT = "APGD"
+GRADIENT_PROJECTION = "GPD"
+DYNAMIC_BARRIER = "Dynamic"
+PRIMALDUAL = "PrimalDual"
+RSG_LC = "proposed_linear"
+RSG_NC = "proposed_nonlinear"

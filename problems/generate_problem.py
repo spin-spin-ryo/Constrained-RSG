@@ -1,25 +1,10 @@
 from problems.objectives import *
 from problems.constraints import *
-from environments import DATAPATH,DEVICE
+from environments import *
 import pickle
 from utils.calculate import generate_symmetric,generate_semidefinite
 import os
 
-# 目的関数一覧
-QUADRATIC = "Quadratic"
-SPARSEQUADRATIC = "SparseQuadratic"
-MATRIXFACTORIZATION = "MatrixFactorization"
-MATRIXFACTORIZATION_COMPLETION = "MatrixFactorization_Completions"
-LEASTSQUARE = "LeastSquare"
-MLPNET = "MLPNET"
-CNN = "CNN"
-
-# 制約一覧
-POLYTOPE = "Polytope"
-NONNEGATIVE = "NonNegative"
-FUSEDLASSO = "FusedLasso"
-BALL = "Ball"
-HUBER = "Huber"
 
 
 def generate_objective(function_name,function_properties):
@@ -191,7 +176,7 @@ def generate_cnn(properties):
         class_num = (torch.unique(label)).shape[0]
     
     params = [data,label,class_num,data_size,layers_size]
-    f = CNN(params)
+    f = CNNet(params)
     return f
 
 def generate_polytope(properties):

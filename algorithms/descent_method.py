@@ -7,8 +7,8 @@ from utils.calculate import line_search,subspace_line_search,get_minimum_eigenva
 from utils.logger import logger
 
 class optimization_solver:
-  def __init__(self,f,backward_mode = True,device = "cpu",dtype = torch.float64) -> None:
-    self.f = f 
+  def __init__(self,backward_mode = True,device = "cpu",dtype = torch.float64) -> None:
+    self.f = None 
     self.xk = None
     self.device = device
     self.dtype = dtype
@@ -39,7 +39,8 @@ class optimization_solver:
   def __clear__(self):
     self.xk.grad = None
 
-  def __run_init__(self,x0,iteration):
+  def __run_init__(self,f,x0,iteration):
+    self.f = f
     self.xk = x0.detach().clone()
     self.save_values["func_values"] = torch.zeros(iteration+1)
     self.save_values["time"] = torch.zeros(iteration+1)
@@ -61,8 +62,8 @@ class optimization_solver:
   def check_norm(self,d,eps):
     return torch.linalg.norm(d) <= eps
   
-  def run(self,x0,iteration,params):
-    self.__run_init__(x0,iteration)
+  def run(self,f,x0,iteration,params):
+    self.__run_init__(f,x0,iteration)
     self.__check_params__(params)
     torch.cuda.synchronize()
     start_time = time.time()
@@ -92,8 +93,8 @@ class optimization_solver:
     return
   
 class GradientDescent(optimization_solver):
-  def __init__(self, f, backward_mode=True, device="cpu", dtype=torch.float64) -> None:
-    super().__init__(f, backward_mode, device, dtype)
+  def __init__(self, backward_mode=True, device="cpu", dtype=torch.float64) -> None:
+    super().__init__(backward_mode, device, dtype)
     self.params_key = ["lr"]
   
   def __iter_per__(self,params):
@@ -110,8 +111,8 @@ class GradientDescent(optimization_solver):
     return params["lr"]
 
 class SubspaceGD(optimization_solver):
-  def __init__(self, f, backward_mode=True, device="cpu", dtype=torch.float64) -> None:
-    super().__init__(f, backward_mode, device, dtype)
+  def __init__(self, backward_mode=True, device="cpu", dtype=torch.float64) -> None:
+    super().__init__(backward_mode, device, dtype)
     self.params_key = ["lr",
                        "reduced_dim",
                        "dim",
@@ -149,15 +150,15 @@ class SubspaceGD(optimization_solver):
       raise ValueError("No matrix mode")
 
 class AcceleratedGD(optimization_solver):
-  def __init__(self, f, backward_mode=True, device="cpu", dtype=torch.float64) -> None:
-    super().__init__(f, backward_mode, device, dtype)
+  def __init__(self, backward_mode=True, device="cpu", dtype=torch.float64) -> None:
+    super().__init__(backward_mode, device, dtype)
     self.lambda_k = 0
     self.yk = None
     self.params_key = ["lr"]
   
-  def __run_init__(self, x0, iteration):
+  def __run_init__(self, f, x0, iteration):
     self.yk = x0.detach().clone()
-    return super().__run_init__(x0, iteration)
+    return super().__run_init__(f, x0, iteration)
   
   def __iter_per__(self, params):
     lr = params["lr"]
@@ -173,8 +174,8 @@ class AcceleratedGD(optimization_solver):
     self.xk.grad = grad
         
 class NewtonMethod(optimization_solver):
-  def __init__(self, f, backward_mode=True, device="cpu", dtype=torch.float64) -> None:
-    super().__init__(f, backward_mode, device, dtype)
+  def __init__(self, backward_mode=True, device="cpu", dtype=torch.float64) -> None:
+    super().__init__(backward_mode, device, dtype)
     self.params_key = [
       "alpha",
       "beta"
@@ -196,8 +197,8 @@ class NewtonMethod(optimization_solver):
     return line_search(self.xk,self.func,grad,dk,alpha,beta)
 
 class SubspaceNewton(SubspaceGD):
-  def __init__(self, f, backward_mode=True, device="cpu", dtype=torch.float64) -> None:
-    super().__init__(f, backward_mode, device, dtype)
+  def __init__(self, backward_mode=True, device="cpu", dtype=torch.float64) -> None:
+    super().__init__(backward_mode, device, dtype)
     self.params_key =["dim",
                       "reduced_dim",
                       "mode"]
@@ -239,8 +240,8 @@ class SubspaceNewton(SubspaceGD):
       raise ValueError("No matrix mode")
 
 class LimitedMemoryNewton(optimization_solver):
-  def __init__(self, f, backward_mode=True, device="cpu", dtype=torch.float64) -> None:
-    super().__init__(f, backward_mode, device, dtype)
+  def __init__(self, backward_mode=True, device="cpu", dtype=torch.float64) -> None:
+    super().__init__(backward_mode, device, dtype)
     self.Pk = None
     self.params_key = [
       "matrix_size",
@@ -298,14 +299,36 @@ class LimitedMemoryNewton(optimization_solver):
 
 # prox(x,t):
 class BacktrackingProximalGD(optimization_solver):
-  def __init__(self, f, prox, backward_mode=True, device="cpu", dtype=torch.float64) -> None:
-    super().__init__(f, backward_mode, device, dtype)
-    self.prox = prox
+  def __init__(self, backward_mode=True, device="cpu", dtype=torch.float64) -> None:
+    super().__init__(backward_mode, device, dtype)
+    self.prox = None
     self.params_key = [
       "eps",
       "beta"
     ]
   
+  def __run_init__(self, f, prox, x0, iteration):
+    self.prox = prox
+    return super().__run_init__(f, x0, iteration)
+  
+  def run(self, f, prox, x0, iteration, params):
+    self.__run_init__(f,prox, x0,iteration)
+    self.__check_params__(params)
+    torch.cuda.synchronize()
+    start_time = time.time()
+    for i in range(iteration):
+      self.__clear__()
+      if not self.finish:
+        self.__iter_per__(params)
+      else:
+        break
+      with torch.no_grad():
+        torch.cuda.synchronize()
+        self.save_values["time"][i+1] = time.time() - start_time
+        self.save_values["func_values"][i+1] = self.func(self.xk)
+    return
+  
+
   def backtracking_with_prox(self,x,grad,beta,max_iter = 10000,loss = None):
     t = 1
     if loss is None:
@@ -333,8 +356,8 @@ class BacktrackingProximalGD(optimization_solver):
     return
 
 class BacktrackingAcceleratedProximalGD(BacktrackingProximalGD):
-  def __init__(self, f, prox, backward_mode=True, device="cpu", dtype=torch.float64) -> None:
-    super().__init__(f, prox, backward_mode, device, dtype)
+  def __init__(self, backward_mode=True, device="cpu", dtype=torch.float64) -> None:
+    super().__init__(backward_mode, device, dtype)
     self.tk = 1
     self.vk = None
     self.k = 0
@@ -345,10 +368,10 @@ class BacktrackingAcceleratedProximalGD(BacktrackingProximalGD):
       "eps"
     ]
   
-  def __run_init__(self,x0,iteration):
+  def __run_init__(self,f, prox,x0,iteration):
     self.k = 0
     self.xk1 = x0.detach().clone()
-    return super().__run_init__(x0,iteration)
+    return super().__run_init__(f,prox,x0,iteration)
 
   def __iter_per__(self, params):
     self.k+=1

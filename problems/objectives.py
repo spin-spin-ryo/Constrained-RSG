@@ -147,7 +147,7 @@ class MLPNet(Objective):
         X = self.activate(F.linear(X, W[i]))
     return self.criterion(X, self.params[1].to(torch.int64))
 
-class CNN(Objective):
+class CNNet(Objective):
     # classification
     # params: [X,y,class_num,data_size,[(input_channels,output_channels,kernel_size,bias_flag_i)]]
     def __init__(self, params,criterion,activation):

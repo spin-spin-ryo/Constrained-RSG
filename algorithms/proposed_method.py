@@ -1,13 +1,13 @@
 import torch
-from constrained_optimization.algorithms.constrained_descent_method import constrained_optimization_solver
+from algorithms.constrained_descent_method import constrained_optimization_solver
 from utils.calculate import inverse_xy
 import time
 
 class RSGLC(constrained_optimization_solver):
-  def __init__(self, f, con, backward_mode=True, device="cpu", dtype=torch.float64) -> None:
+  def __init__(self, backward_mode=True, device="cpu", dtype=torch.float64) -> None:
     self.lk = None
     self.first_check = False
-    super().__init__(f, con, backward_mode, device, dtype)
+    super().__init__(backward_mode, device, dtype)
     self.params_key = ["eps0",
                   "delta1",
                   "eps2",
@@ -139,8 +139,8 @@ class RSGLC(constrained_optimization_solver):
       raise ValueError("No matrix mode")
   
 class RSGNC(RSGLC):
-  def __init__(self, f, con, backward_mode=True, device="cpu", dtype=torch.float64) -> None:
-    super().__init__(f, con, backward_mode, device, dtype)
+  def __init__(self, backward_mode=True, device="cpu", dtype=torch.float64) -> None:
+    super().__init__(backward_mode, device, dtype)
     self.params_key = ["eps0",
                   "delta1",
                   "eps2",
