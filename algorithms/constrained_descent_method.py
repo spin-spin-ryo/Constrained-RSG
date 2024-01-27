@@ -10,13 +10,14 @@ BARRIERTYPE1 = "values"
 BARRIERTYPE2 = "grads" 
 
 class constrained_optimization_solver(optimization_solver):
-  def __init__(self,backward_mode = True,device = "cpu",dtype = torch.float64) -> None:
-    super().__init__(backward_mode,device,dtype)
+  def __init__(self,device = "cpu",dtype = torch.float64) -> None:
+    super().__init__(device,dtype)
     self.con = None
   
   def run(self, f, con, x0, iteration, params,save_path,log_interval=-1):
     self.__run_init__(f,con,x0,iteration)
     self.__check_params__(params)
+    self.backward_mode = params["backward"]
     torch.cuda.synchronize()
     start_time = time.time()
     for i in range(iteration):
@@ -52,9 +53,9 @@ class constrained_optimization_solver(optimization_solver):
     return self.con.grad(x)
   
 class GradientProjectionMethod(constrained_optimization_solver):
-  def __init__(self, f, con, backward_mode=True, device="cpu", dtype=torch.float64) -> None:
-    super().__init__(f, con, backward_mode, device, dtype)
-    self.params_key = ["eps","delta","alpha","beta"]
+  def __init__(self,device="cpu", dtype=torch.float64) -> None:
+    super().__init__(device, dtype)
+    self.params_key = ["eps","delta","alpha","beta","backward"]
     self.lk = None
 
   def get_activate_grads(self,eps):
@@ -103,8 +104,8 @@ class GradientProjectionMethod(constrained_optimization_solver):
       return -grad
     
 class DynamicBarrierGD(constrained_optimization_solver):
-  def __init__(self, f ,con, backward_mode=True, device="cpu", dtype=torch.float64) -> None:
-    super().__init__(f, con, backward_mode, device, dtype)
+  def __init__(self,device="cpu", dtype=torch.float64) -> None:
+    super().__init__(device, dtype)
     self.lk = None
     self.params_key = [
       "lr",
@@ -112,7 +113,8 @@ class DynamicBarrierGD(constrained_optimization_solver):
       "beta",
       "barrier_func_type",
       "sub_problem_eps",
-      "inner_iteration"
+      "inner_iteration",
+      "backward"
     ]   
   
   def barrier_func(self,constraints_grads,constraints_values,alpha,beta,type):
@@ -170,13 +172,14 @@ class DynamicBarrierGD(constrained_optimization_solver):
     return - grad - constraints_grads.transpose(0,1)@self.lk
 
 class PrimalDualInteriorPointMethod(constrained_optimization_solver):
-  def __init__(self, f, con, backward_mode=True, device="cpu", dtype=torch.float64) -> None:
-    super().__init__(f, con, backward_mode, device, dtype)
+  def __init__(self, device="cpu", dtype=torch.float64) -> None:
+    super().__init__(device, dtype)
     self.lk = None
     self.params_key = [
       "mu",
       "eps",
-      "eps_feas"
+      "eps_feas",
+      "backward"
     ]
   
   def evaluate_constraints_hessian_linear_sum(self, x,l):

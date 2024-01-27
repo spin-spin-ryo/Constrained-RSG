@@ -93,7 +93,7 @@ if __name__ == "__main__":
     },
     "algorithms":{
       "solver_name":solver_name,
-      "backward_mode":backward_mode
+      "backward":backward_mode
     },
     "iteration":iteration,
     "log_interval":log_interval

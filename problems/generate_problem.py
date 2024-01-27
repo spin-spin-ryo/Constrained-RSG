@@ -271,8 +271,8 @@ def generate_huber(properties):
 
 
 objective_properties_key ={
-	QUADRATIC:["dim","convex","data_name"],
-	SPARSEQUADRATIC:["dim","data_name"],
+    QUADRATIC:["dim","convex","data_name"],
+    SPARSEQUADRATIC:["dim","data_name"],
   MATRIXFACTORIZATION:["data_name","rank"],
   MATRIXFACTORIZATION_COMPLETION:["data_name","rank"],
   LEASTSQUARE:["data_name","data_size","dim"],

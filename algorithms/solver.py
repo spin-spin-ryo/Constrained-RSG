@@ -3,34 +3,32 @@ from algorithms.constrained_descent_method import *
 from algorithms.proposed_method import *
 from environments import *
 
-def get_solver(solver_name,backward_mode):
+def get_solver(solver_name):
     if solver_name == GRADIENT_DESCENT:
-        solver = GradientDescent(backward_mode)
+        solver = GradientDescent()
     elif solver_name == SUBSPACE_GRADIENT_DESCENT:
-        solver = SubspaceGD(backward_mode)
+        solver = SubspaceGD()
     elif solver_name == ACCELERATED_GRADIENT_DESCENT:
-        solver = AcceleratedGD(backward_mode)
+        solver = AcceleratedGD()
     elif solver_name == NEWTON:
-        solver = NewtonMethod(backward_mode)
+        solver = NewtonMethod()
     elif solver_name == LIMITED_MEMORY_NEWTON:
-        solver = LimitedMemoryNewton(backward_mode)
+        solver = LimitedMemoryNewton()
     elif solver_name == PROXIMAL_GRADIENT_DESCENT:
-        solver = BacktrackingProximalGD(backward_mode)
+        solver = BacktrackingProximalGD()
     elif solver_name == ACCELERATED_PROXIMAL_GRADIENT_DESCENT:
-        solver = BacktrackingAcceleratedProximalGD(backward_mode)
+        solver = BacktrackingAcceleratedProximalGD()
     elif solver_name == GRADIENT_PROJECTION:
-        solver = GradientProjectionMethod(backward_mode)
+        solver = GradientProjectionMethod()
     elif solver_name == DYNAMIC_BARRIER:
-        solver = DynamicBarrierGD(backward_mode)
+        solver = DynamicBarrierGD()
     elif solver_name == PRIMALDUAL:
-        solver = PrimalDualInteriorPointMethod(backward_mode)
+        solver = PrimalDualInteriorPointMethod()
     elif solver_name == RSG_LC:
-        solver = RSGLC(backward_mode)
+        solver = RSGLC()
     elif solver_name == RSG_NC:
-        solver = RSGNC(backward_mode)
+        solver = RSGNC()
     else:
-        raise ValueError(f"{solver_name} is not implemetend.")
+        raise ValueError(f"{solver_name} is not implemented.")
     return solver
-
-def get_params_from_config(config):
     

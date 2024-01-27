@@ -4,10 +4,10 @@ from utils.calculate import inverse_xy
 import time
 
 class RSGLC(constrained_optimization_solver):
-  def __init__(self, backward_mode=True, device="cpu", dtype=torch.float64) -> None:
+  def __init__(self, device="cpu", dtype=torch.float64) -> None:
     self.lk = None
     self.first_check = False
-    super().__init__(backward_mode, device, dtype)
+    super().__init__(device, dtype)
     self.params_key = ["eps0",
                   "delta1",
                   "eps2",
@@ -16,7 +16,8 @@ class RSGLC(constrained_optimization_solver):
                   "alpha1",
                   "alpha2",
                   "beta",
-                  "mode"]
+                  "mode",
+                  "backward"]
     
   def subspace_first_order_oracle(self,x,Mk):
     reduced_dim = Mk.shape[0]
@@ -139,8 +140,8 @@ class RSGLC(constrained_optimization_solver):
       raise ValueError("No matrix mode")
   
 class RSGNC(RSGLC):
-  def __init__(self, backward_mode=True, device="cpu", dtype=torch.float64) -> None:
-    super().__init__(backward_mode, device, dtype)
+  def __init__(self, device="cpu", dtype=torch.float64) -> None:
+    super().__init__(device, dtype)
     self.params_key = ["eps0",
                   "delta1",
                   "eps2",
@@ -150,7 +151,8 @@ class RSGNC(RSGLC):
                   "alpha2",
                   "beta",
                   "mode",
-                  "r"]
+                  "r",
+                  "backward"]
       
   def __iter_per__(self,params):
     # 後でx.gradについて確認

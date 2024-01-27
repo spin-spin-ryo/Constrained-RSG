@@ -8,12 +8,12 @@ from utils.logger import logger
 import os
 
 class optimization_solver:
-  def __init__(self,backward_mode = True,device = "cpu",dtype = torch.float64) -> None:
+  def __init__(self,device = "cpu",dtype = torch.float64) -> None:
     self.f = None 
     self.xk = None
     self.device = device
     self.dtype = dtype
-    self.backward_mode = backward_mode
+    self.backward_mode = True
     self.finish = False
     self.save_values = {}
     self.params_key = {}
@@ -66,6 +66,7 @@ class optimization_solver:
   def run(self,f,x0,iteration,params,save_path,log_interval = -1):
     self.__run_init__(f,x0,iteration)
     self.__check_params__(params)
+    self.backward_mode = params["backward"]
     torch.cuda.synchronize()
     start_time = time.time()
     for i in range(iteration):
@@ -101,9 +102,10 @@ class optimization_solver:
     return
   
 class GradientDescent(optimization_solver):
-  def __init__(self, backward_mode=True, device="cpu", dtype=torch.float64) -> None:
-    super().__init__(backward_mode, device, dtype)
-    self.params_key = ["lr"]
+  def __init__(self, device="cpu", dtype=torch.float64) -> None:
+    super().__init__(device, dtype)
+    self.params_key = ["lr",
+                       "backward"]
   
   def __iter_per__(self,params):
     grad = self.__first_order_oracle__(self.xk)
@@ -119,12 +121,13 @@ class GradientDescent(optimization_solver):
     return params["lr"]
 
 class SubspaceGD(optimization_solver):
-  def __init__(self, backward_mode=True, device="cpu", dtype=torch.float64) -> None:
-    super().__init__(backward_mode, device, dtype)
+  def __init__(self, device="cpu", dtype=torch.float64) -> None:
+    super().__init__(device, dtype)
     self.params_key = ["lr",
                        "reduced_dim",
                        "dim",
-                       "mode"]
+                       "mode",
+                       "backward"]
         
   def subspace_first_order_oracle(self,x,Mk):
     reduced_dim = Mk.shape[0]
@@ -158,11 +161,12 @@ class SubspaceGD(optimization_solver):
       raise ValueError("No matrix mode")
 
 class AcceleratedGD(optimization_solver):
-  def __init__(self, backward_mode=True, device="cpu", dtype=torch.float64) -> None:
-    super().__init__(backward_mode, device, dtype)
+  def __init__(self, device="cpu", dtype=torch.float64) -> None:
+    super().__init__(device, dtype)
     self.lambda_k = 0
     self.yk = None
-    self.params_key = ["lr"]
+    self.params_key = ["lr",
+                       "backward"]
   
   def __run_init__(self, f, x0, iteration):
     self.yk = x0.detach().clone()
@@ -182,11 +186,12 @@ class AcceleratedGD(optimization_solver):
     self.xk.grad = grad
         
 class NewtonMethod(optimization_solver):
-  def __init__(self, backward_mode=True, device="cpu", dtype=torch.float64) -> None:
-    super().__init__(backward_mode, device, dtype)
+  def __init__(self, device="cpu", dtype=torch.float64) -> None:
+    super().__init__(device, dtype)
     self.params_key = [
       "alpha",
-      "beta"
+      "beta",
+      "backward"
     ]
 
   def __iter_per__(self, params):
@@ -205,11 +210,12 @@ class NewtonMethod(optimization_solver):
     return line_search(self.xk,self.func,grad,dk,alpha,beta)
 
 class SubspaceNewton(SubspaceGD):
-  def __init__(self, backward_mode=True, device="cpu", dtype=torch.float64) -> None:
-    super().__init__(backward_mode, device, dtype)
+  def __init__(self, device="cpu", dtype=torch.float64) -> None:
+    super().__init__(device, dtype)
     self.params_key =["dim",
                       "reduced_dim",
-                      "mode"]
+                      "mode",
+                      "backward"]
 
   def subspace_second_order_oracle(self,x,Mk):
     reduced_dim = Mk.shape[0]
@@ -248,14 +254,15 @@ class SubspaceNewton(SubspaceGD):
       raise ValueError("No matrix mode")
 
 class LimitedMemoryNewton(optimization_solver):
-  def __init__(self, backward_mode=True, device="cpu", dtype=torch.float64) -> None:
-    super().__init__(backward_mode, device, dtype)
+  def __init__(self, device="cpu", dtype=torch.float64) -> None:
+    super().__init__(device, dtype)
     self.Pk = None
     self.params_key = [
       "matrix_size",
       "threshold_eigenvalue",
       "alpha",
-      "beta"
+      "beta",
+      "backward"
     ]
   
   def subspace_first_order_oracle(self,x,Mk):
@@ -307,12 +314,13 @@ class LimitedMemoryNewton(optimization_solver):
 
 # prox(x,t):
 class BacktrackingProximalGD(optimization_solver):
-  def __init__(self, backward_mode=True, device="cpu", dtype=torch.float64) -> None:
-    super().__init__(backward_mode, device, dtype)
+  def __init__(self, device="cpu", dtype=torch.float64) -> None:
+    super().__init__(device, dtype)
     self.prox = None
     self.params_key = [
       "eps",
-      "beta"
+      "beta",
+      "backward"
     ]
   
   def __run_init__(self, f, prox, x0, iteration):
@@ -321,6 +329,7 @@ class BacktrackingProximalGD(optimization_solver):
   
   def run(self, f, prox, x0, iteration, params,save_path,log_interval=-1):
     self.__run_init__(f,prox, x0,iteration)
+    self.backward_mode = params["backward"]
     self.__check_params__(params)
     torch.cuda.synchronize()
     start_time = time.time()
@@ -367,8 +376,8 @@ class BacktrackingProximalGD(optimization_solver):
     return
 
 class BacktrackingAcceleratedProximalGD(BacktrackingProximalGD):
-  def __init__(self, backward_mode=True, device="cpu", dtype=torch.float64) -> None:
-    super().__init__(backward_mode, device, dtype)
+  def __init__(self, device="cpu", dtype=torch.float64) -> None:
+    super().__init__(device, dtype)
     self.tk = 1
     self.vk = None
     self.k = 0
@@ -376,7 +385,8 @@ class BacktrackingAcceleratedProximalGD(BacktrackingProximalGD):
     self.params_key = [
       "restart",
       "beta",
-      "eps"
+      "eps",
+      "backward"
     ]
   
   def __run_init__(self,f, prox,x0,iteration):

@@ -10,7 +10,7 @@ def get_objects_from_config(config):
 
     # solverを取得
     solver_name = algorithms_config["solver_name"]
-    backward_mode = algorithms_config["backward_mode"]
+    backward_mode = algorithms_config["backward"]
     solver = get_solver(solver_name=solver_name,backward_mode=backward_mode)
     solver_params = {}
     for param in solver.params_key:
@@ -27,10 +27,10 @@ def get_objects_from_config(config):
     constraints_name = constraints_config["constraints_name"]
     constraints_properties = {}
     if constraints_name != NOCONSTRAINTS:
-			for param in constraints_properties_key[constraints_name]:
-				constraints_properties[param] = constraints_config[param]
-			con = generate_constraints(constraints_name=constraints_name,constraints_properties=constraints_properties)
-		else:
+      for param in constraints_properties_key[constraints_name]:
+        constraints_properties[param] = constraints_config[param]
+      con = generate_constraints(constraints_name=constraints_name,constraints_properties=constraints_properties)
+    else:
       con = None
       
     x0 = generate_initial_points(func=f,
