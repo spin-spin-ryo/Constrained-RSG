@@ -1,8 +1,9 @@
 from environments import * 
 from numerical_experiment import get_objects_from_config
-from utils.save_func import get_path_form_params,save_result_json
+from utils.save_func import get_path_form_params,save_result_json,load_config
 import os
 import torch
+import sys
 
 
 def run_numerical_experiment(config):
@@ -65,36 +66,7 @@ def run_numerical_experiment(config):
                   iteration=iteration)
 
 if __name__ == "__main__":
-  # 以下設定
-  objective_name = QUADRATIC
-  constraints_name = POLYTOPE
-  solver_name = GRADIENT_DESCENT
-
-
-
-  # 問題関連のパラメータ
-  dim = 1000
-  constraints_num = 100
-
-
-  # アルゴリズム関連のパラメータ
-  backward_mode = True
-  iteration = 100
-  log_interval = 10
-
-  config = {
-    "objective":{
-      "objective_name":objective_name
-    },
-
-    "constraints":{
-      "constraints_name":constraints_name,
-      "constraints_num":constraints_num
-    },
-    "algorithms":{
-      "solver_name":solver_name,
-      "backward":backward_mode
-    },
-    "iteration":iteration,
-    "log_interval":log_interval
-  }
+  args = sys.argv
+  config_path = args[1]
+  config = load_config(config_path)
+  run_numerical_experiment(config)
