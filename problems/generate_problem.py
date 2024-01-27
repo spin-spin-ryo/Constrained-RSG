@@ -39,6 +39,8 @@ def generate_constraints(constraints_name, constraints_properties):
         constraints = generate_ball(constraints_properties)
     elif constraints_name == HUBER:
         constraints = generate_huber(constraints_properties)
+    elif constraints_name == NOCONSTRAINTS:
+        constraints = None
     else:
         raise ValueError(f"{constraints_name} is not implemented.")
     return constraints    

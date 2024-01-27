@@ -17,6 +17,7 @@ NONNEGATIVE = "NonNegative"
 FUSEDLASSO = "FusedLasso"
 BALL = "Ball"
 HUBER = "Huber"
+NOCONSTRAINTS = "NoConstraint"
 
 # アルゴリズム手法一覧
 GRADIENT_DESCENT = "GD"
