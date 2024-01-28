@@ -5,7 +5,24 @@ import pickle
 from utils.calculate import generate_symmetric,generate_semidefinite
 import os
 
+objective_properties_key ={
+    QUADRATIC:["dim","convex","data_name"],
+    SPARSEQUADRATIC:["dim","data_name"],
+    MATRIXFACTORIZATION:["data_name","rank"],
+    MATRIXFACTORIZATION_COMPLETION:["data_name","rank"],
+    LEASTSQUARE:["data_name","data_size","dim"],
+    MLPNET: ["data_name","layers_size"],
+    CNN: ["data_name","layers_size"]
+}
 
+constraints_properties_key = {
+    POLYTOPE:["data_name","dim","constraints_num"],
+    NONNEGATIVE:["dim"],
+    QUADRATIC:["data_name","dim","constraints_num"],
+    FUSEDLASSO: ["threshold1","threshold2"],
+    BALL:["ord","threshold"],
+    HUBER:["delta","threshold"]
+}
 
 def generate_objective(function_name,function_properties):
     if function_name == QUADRATIC:
@@ -269,22 +286,3 @@ def generate_huber(properties):
     con = Huber(params)
     return con
 
-
-objective_properties_key ={
-    QUADRATIC:["dim","convex","data_name"],
-    SPARSEQUADRATIC:["dim","data_name"],
-  MATRIXFACTORIZATION:["data_name","rank"],
-  MATRIXFACTORIZATION_COMPLETION:["data_name","rank"],
-  LEASTSQUARE:["data_name","data_size","dim"],
-  MLPNET: ["data_name","layers_size"],
-  CNN: ["data_name","layers_size"]
-}
-
-constraints_properties_key = {
-    POLYTOPE:["data_name","dim","constraints_num"],
-    NONNEGATIVE:["dim"],
-    QUADRATIC:["data_name","dim","constraints_num"],
-    FUSEDLASSO: ["threshold1","threshold2"],
-    BALL:["ord","threshold"],
-    HUBER:["delta","threshold"]
-}

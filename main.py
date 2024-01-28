@@ -23,6 +23,8 @@ def run_numerical_experiment(config):
   f.set_device(DEVICE)
   f.set_type(DTYPE)
   x0 = x0.to(DEVICE).to(DTYPE)
+
+  logger.info(f"dimensiton:{f.get_dimension()}")
   
   if constraints_name != NOCONSTRAINTS:
     con_dir = get_path_form_params(constraints_properties)
@@ -66,7 +68,8 @@ def run_numerical_experiment(config):
               log_interval=log_interval
               )
 
-  min_f_value = torch.min(solver.save_values["func_values"]).item()
+  nonzero_index = solver.save_values["func_values"] != 0
+  min_f_value = torch.min(solver.save_values["func_values"][nonzero_index]).item()
   execution_time = solver.save_values["time"][-1]
   values_dict = {
     "min_value":min_f_value,

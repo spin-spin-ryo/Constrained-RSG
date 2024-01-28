@@ -73,15 +73,21 @@ class optimization_solver:
       if not self.finish:
         self.__iter_per__(params)
       else:
+        logger.info("Stop Criterion")
         break
       with torch.no_grad():
         torch.cuda.synchronize()
-        self.save_values["time"][i+1] = time.time() - start_time
-        self.save_values["func_values"][i+1] = self.f(self.xk)
+        T = time.time() - start_time
+        F = self.f(self.xk)
+        self.update_save_values(i+1,time = T,func_values = F)
         if (i+1)%log_interval == 0 & log_interval != -1:
           logger.info(f'{i+1}: {self.save_values["func_values"][i+1]}')
           self.save_results(save_path)
     return
+  
+  def update_save_values(self,iter,**kwargs):
+    for k,v in kwargs.items():
+      self.save_values[k][iter] = v
   
   def save_results(self,save_path):
     for k,v in self.save_values.items():

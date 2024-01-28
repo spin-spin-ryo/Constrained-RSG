@@ -7,6 +7,8 @@ class RSGLC(constrained_optimization_solver):
   def __init__(self, device="cpu", dtype=torch.float64) -> None:
     self.lk = None
     self.first_check = False
+    self.active_num = 0
+    self.grad_norm = 0
     super().__init__(device, dtype)
     self.params_key = ["eps0",
                   "delta1",
@@ -44,6 +46,7 @@ class RSGLC(constrained_optimization_solver):
     GkMk = self.get_active_constraints_projected_grads(Mk,eps0)
     # M_k^\top \nabla f
     projected_grad = self.subspace_first_order_oracle(self.xk,Mk)
+    self.grad_norm = torch.linalg.norm(projected_grad)
     d = self.__direction__(projected_grad,active_constraints_projected_grads=GkMk,delta1=delta1,eps2=eps2,dim=dim,reduced_dim=reduced_dim)
     if d is None:
       return
@@ -80,6 +83,7 @@ class RSGLC(constrained_optimization_solver):
       self.first_check = True
       if self.check_lambda(eps2):
         self.finish = True
+        
         return None
       else:
         l = self.lk.clone()
@@ -93,6 +97,16 @@ class RSGLC(constrained_optimization_solver):
   def __clear__(self):
     self.first_check = False
     return super().__clear__()
+  
+  def __run_init__(self, f, con, x0, iteration):
+    self.save_values["active"] = torch.zeros(iteration+1)
+    self.save_values["grad_norm"] = torch.zeros(iteration+1)
+    return super().__run_init__(f, con, x0, iteration)
+
+  def update_save_values(self, iter, **kwargs):
+    self.save_values["active"][iter] = self.active_num
+    self.save_values["grad_norm"][iter] = self.grad_norm
+    return super().update_save_values(iter, **kwargs)
   
   def get_active_constraints(self,constraints_grads_norm,constraints_values,eps0):
     index = constraints_values > -eps0*constraints_grads_norm  
@@ -117,6 +131,7 @@ class RSGLC(constrained_optimization_solver):
                                                            constraints_values=constraints_values,
                                                            eps0=eps0)
     active_constraints_grads = constraints_grads[active_constraints_index]
+    self.active_num = len(active_constraints_grads)
     active_constraints_projected_grads = self.get_projected_gradient_by_matmul(Mk=Mk,
                                                                                G = active_constraints_grads)
     
