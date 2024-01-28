@@ -164,3 +164,4 @@ results/
 configs/
 sh_files/
 scheduler_run.py
+outputs/
