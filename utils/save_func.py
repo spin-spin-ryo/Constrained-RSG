@@ -2,6 +2,7 @@ import os
 from environments import DISTINCT_PARAM_VALUE,DISTINCT_PARAMS
 import json
 import numpy as np
+import matplotlib.pyplot as plt
 
 def get_path_form_params(params:dict):
     save_path = ""
@@ -23,6 +24,12 @@ def load_config(config_path):
 	with open(config_path,"r") as f:
 		config = json.load(f)
 	return config
+
+def plot_results(save_path,values_dict):
+	for k,v in values_dict.items():
+		plt.plot(np.arange(len(v)),v)
+		plt.savefig(os.path.join(save_path,k+".png"))
+		plt.close()
 
 def save_result_json(save_path,values_dict:dict,iteration):
 	if os.path.exists(save_path):

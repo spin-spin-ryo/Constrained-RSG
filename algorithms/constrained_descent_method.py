@@ -2,7 +2,6 @@ import torch
 import time
 import numpy as np
 from algorithms.descent_method import optimization_solver,BacktrackingAcceleratedProximalGD
-from torch._C import float64
 from utils.calculate import nonnegative_projection
 from utils.logger import logger
 
@@ -29,7 +28,7 @@ class constrained_optimization_solver(optimization_solver):
       with torch.no_grad():
         torch.cuda.synchronize()
         self.save_values["time"][i+1] = time.time() - start_time
-        self.save_values["func_values"][i+1] = self.func(self.xk)
+        self.save_values["func_values"][i+1] = self.f(self.xk)
         if (i+1)%log_interval == 0 & log_interval != -1:
           logger.info(f'{i+1}: {self.save_values["func_values"][i+1]}')
           self.save_results(save_path)
@@ -43,7 +42,7 @@ class constrained_optimization_solver(optimization_solver):
     self.save_values["time"] = torch.zeros(iteration+1)
     self.finish = False
     with torch.no_grad():
-      self.save_values["func_values"][0] = self.func(self.xk)
+      self.save_values["func_values"][0] = self.f(self.xk)
 
 
   def evaluate_constraints_values(self,x):

@@ -1,7 +1,6 @@
 import torch
 import time
 import numpy as np
-from torch._C import float64
 from torch.autograd.functional import hessian
 from utils.calculate import line_search,subspace_line_search,get_minimum_eigenvalue
 from utils.logger import logger
@@ -34,7 +33,7 @@ class optimization_solver:
         return x.grad
   
   def __second_order_oracle__(self,x):
-    H = hessian(self.func,x)
+    H = hessian(self.f,x)
     return H
    
   def __clear__(self):
@@ -47,7 +46,7 @@ class optimization_solver:
     self.save_values["time"] = torch.zeros(iteration+1)
     self.finish = False
     with torch.no_grad():
-      self.save_values["func_values"][0] = self.func(self.xk)
+      self.save_values["func_values"][0] = self.f(self.xk)
 
   def __check_params__(self,params):
     all_params = True
@@ -78,15 +77,15 @@ class optimization_solver:
       with torch.no_grad():
         torch.cuda.synchronize()
         self.save_values["time"][i+1] = time.time() - start_time
-        self.save_values["func_values"][i+1] = self.func(self.xk)
+        self.save_values["func_values"][i+1] = self.f(self.xk)
         if (i+1)%log_interval == 0 & log_interval != -1:
           logger.info(f'{i+1}: {self.save_values["func_values"][i+1]}')
           self.save_results(save_path)
     return
   
   def save_results(self,save_path):
-    for k,v in self.save_values:
-      torch.save(v.cpu(),os.path.join(save_path,v+".pth"))
+    for k,v in self.save_values.items():
+      torch.save(v.cpu(),os.path.join(save_path,k+".pth"))
   
   def __update__(self,d):
     with torch.no_grad():
@@ -207,7 +206,7 @@ class NewtonMethod(optimization_solver):
   def __step_size__(self, grad,dk,params):
     alpha = params["alpha"]
     beta = params["beta"]
-    return line_search(self.xk,self.func,grad,dk,alpha,beta)
+    return line_search(self.xk,self.f,grad,dk,alpha,beta)
 
 class SubspaceNewton(SubspaceGD):
   def __init__(self, device="cpu", dtype=torch.float64) -> None:
@@ -220,7 +219,7 @@ class SubspaceNewton(SubspaceGD):
   def subspace_second_order_oracle(self,x,Mk):
     reduced_dim = Mk.shape[0]
     d = torch.zeros(reduced_dim,dtype = self.dtype,device = self.device)
-    sub_func = lambda d: self.func(x +Mk.transpose(0,1)@d)
+    sub_func = lambda d: self.f(x +Mk.transpose(0,1)@d)
     H = hessian(sub_func,d)
     return H
     
@@ -242,7 +241,7 @@ class SubspaceNewton(SubspaceGD):
   def __step_size__(self, grad,dk,Mk,params):
     alpha = params["alpha"]
     beta = params["beta"]
-    return subspace_line_search(self.xk,self.func,projected_grad=grad,dk=dk,Mk=Mk,alpha=alpha,beta=beta)
+    return subspace_line_search(self.xk,self.f,projected_grad=grad,dk=dk,Mk=Mk,alpha=alpha,beta=beta)
 
   def generate_matrix(self,dim,reduced_dim,mode):
     # (dim,reduced_dim)の行列を生成
@@ -287,7 +286,7 @@ class LimitedMemoryNewton(optimization_solver):
   def subspace_second_order_oracle(self,x,Mk,threshold_eigenvalue):
     matrix_size = Mk.shape[0]
     d = torch.zeros(matrix_size,dtype = self.dtype,device = self.device)
-    sub_loss = lambda d:self.func(x + Mk.transpose(0,1)@d)
+    sub_loss = lambda d:self.f(x + Mk.transpose(0,1)@d)
     H = hessian(sub_loss,d)
     sigma_m = get_minimum_eigenvalue(H)
     if sigma_m < threshold_eigenvalue:
@@ -310,7 +309,7 @@ class LimitedMemoryNewton(optimization_solver):
   def __step_size__(self, grad,dk,Mk,params):
     alpha = params["alpha"]
     beta = params["beta"]
-    return subspace_line_search(self.xk,self.func,projected_grad=grad,dk=dk,Mk=Mk,alpha=alpha,beta=beta)
+    return subspace_line_search(self.xk,self.f,projected_grad=grad,dk=dk,Mk=Mk,alpha=alpha,beta=beta)
 
 # prox(x,t):
 class BacktrackingProximalGD(optimization_solver):
@@ -342,7 +341,7 @@ class BacktrackingProximalGD(optimization_solver):
       with torch.no_grad():
         torch.cuda.synchronize()
         self.save_values["time"][i+1] = time.time() - start_time
-        self.save_values["func_values"][i+1] = self.func(self.xk)
+        self.save_values["func_values"][i+1] = self.f(self.xk)
         if (i+1)%log_interval == 0 & log_interval != -1:
           logger.info(f'{i+1}: {self.save_values["func_values"][i+1]}')
           self.save_results(save_path)
@@ -352,9 +351,9 @@ class BacktrackingProximalGD(optimization_solver):
   def backtracking_with_prox(self,x,grad,beta,max_iter = 10000,loss = None):
     t = 1
     if loss is None:
-      loss = self.func(x)
+      loss = self.f(x)
     prox_x = self.prox(x - t*grad,t)
-    while t*self.func(prox_x) > t*loss - t*grad@(x - prox_x) + 1/2*((x-prox_x)@(x-prox_x)):
+    while t*self.f(prox_x) > t*loss - t*grad@(x - prox_x) + 1/2*((x-prox_x)@(x-prox_x)):
       t *= beta
       max_iter -= 1
       prox_x = self.prox(x - t*grad,t)
@@ -409,16 +408,16 @@ class BacktrackingAcceleratedProximalGD(BacktrackingProximalGD):
     self.xk = prox_x.detach().clone()
     self.v = None
     if restart:
-      if self.func(self.xk) > self.func(self.xk1):
+      if self.f(self.xk) > self.f(self.xk1):
           self.k = 0
 
   def backtracking_with_prox(self, x,v, grad_v, beta, max_iter=10000, loss_v=None):
     with torch.no_grad():
       if loss_v is None:
         with torch.no_grad():
-          loss_v = self.func(v)
+          loss_v = self.f(v)
       prox_x = self.prox(v-self.t*grad_v,self.t)
-      while self.t*self.func(prox_x) > self.t*loss_v + self.t*grad_v@(prox_x - v) + 1/2*((prox_x - v)@(prox_x - v)):
+      while self.t*self.f(prox_x) > self.t*loss_v + self.t*grad_v@(prox_x - v) + 1/2*((prox_x - v)@(prox_x - v)):
           self.t *= beta
           prox_x = self.prox(v-self.t*grad_v,self.t)    
       return prox_x,self.t

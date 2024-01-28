@@ -1,6 +1,11 @@
+import torch
 DATAPATH = "./data"
 RESULTPATH = "./results"
-DEVICE = "cpu"
+if torch.cuda.is_available():
+  DEVICE = "cuda"
+else:
+  DEVICE = "cpu"
+DTYPE = torch.float64
 
 # 目的関数一覧
 QUADRATIC = "Quadratic"

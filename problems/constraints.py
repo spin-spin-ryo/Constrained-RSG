@@ -60,7 +60,7 @@ class Polytope(constraints):
         # params: [A,b] 
         super().__init__(params)
     
-    def __init__(self,x):
+    def __call__(self,x):
         return self.params[0]@x-self.params[1]
     
     def grad(self, x):

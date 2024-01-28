@@ -63,7 +63,7 @@ def generate_initial_points(func,function_name,constraints_name,function_propert
             # dim:33738
             x0 = torch.load(os.path.join(DATAPATH,"mnist","cnn","init_param.pth"))
             return x0
-    x0 = torch.ones(dim)
+    x0 = torch.zeros(dim)
     return x0
 
 def generate_quadratic(properties):

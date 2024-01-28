@@ -72,7 +72,7 @@ class RSGLC(constrained_optimization_solver):
       direction1 =  -projected_grad
     else:
       b = active_constraints_projected_grads@projected_grad
-      A = active_constraints_projected_grads@active_constraints_projected_grads.tranpose(0,1)
+      A = active_constraints_projected_grads@active_constraints_projected_grads.transpose(0,1)
       self.lk = torch.linalg.solve(A,-b)
       direction1 = -projected_grad - active_constraints_projected_grads.transpose(0,1)@self.lk
 
@@ -98,7 +98,7 @@ class RSGLC(constrained_optimization_solver):
     index = constraints_values > -eps0*constraints_grads_norm  
     return index
   
-  def get_projected_gradient_by_matmul(Mk,G):
+  def get_projected_gradient_by_matmul(self,Mk,G):
     # Mk:(n,d) Gk(m,n)
     # Mk = None = identity
     if len(G) == 0:
@@ -107,7 +107,7 @@ class RSGLC(constrained_optimization_solver):
     if Mk is None:
       return G
     else:
-      return G@Mk 
+      return G@Mk.transpose(0,1) 
 
   def get_active_constraints_projected_grads(self,Mk,eps0):
     constraints_values = self.evaluate_constraints_values(self.xk)
@@ -193,7 +193,7 @@ class RSGNC(RSGLC):
       direction1 =  -projected_grad
     else:
       GMMf = active_constraints_projected_grads@projected_grad
-      GMMG = active_constraints_projected_grads@active_constraints_projected_grads.tranpose(0,1)
+      GMMG = active_constraints_projected_grads@active_constraints_projected_grads.transpose(0,1)
       wk = torch.linalg.norm(active_constraints_projected_grads,dim = 1)
       GMMG_inv = torch.linalg.inv(GMMG)
       rk = r/torch.sqrt(GMMG_inv@wk@wk)
