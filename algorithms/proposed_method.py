@@ -3,6 +3,10 @@ from algorithms.constrained_descent_method import constrained_optimization_solve
 from utils.calculate import inverse_xy
 import time
 from utils.logger import logger
+import random
+import numpy as np
+
+
 
 class RSGLC(constrained_optimization_solver):
   def __init__(self, device="cpu", dtype=torch.float64) -> None:
@@ -51,9 +55,8 @@ class RSGLC(constrained_optimization_solver):
     GkMk = self.get_projected_gradient_by_matmul(Mk,Gk)
     # M_k^\top \nabla f
     projected_grad = self.subspace_first_order_oracle(self.xk,Mk)
-    self.grad_norm = torch.linalg.norm(projected_grad)
-    
     d = self.__direction__(projected_grad,active_constraints_projected_grads=GkMk,delta1=delta1,eps2=eps2,dim=dim,reduced_dim=self.reduced_dim)
+    self.grad_norm = torch.linalg.norm(d)
     if d is None:
       return
     if Mk is None:
@@ -94,7 +97,7 @@ class RSGLC(constrained_optimization_solver):
         l = self.lk.clone()
         l[l>0] = 0
         l *= reduced_dim/dim
-        direction2 = -active_constraints_projected_grads.transpose(0,1)@torch.linalg.solve(A,l)
+        direction2 = -active_constraints_projected_grads.transpose(0,1)@torch.linalg.solve(A,-l)
         return direction2
     else:
       return direction1
@@ -132,8 +135,6 @@ class RSGLC(constrained_optimization_solver):
     else:
       return G@Mk.transpose(0,1) 
 
-    
-    
   def get_active_constraints_grads(self,eps0):
     constraints_values = self.evaluate_constraints_values(self.xk)
     constraints_grads = self.evaluate_constraints_grads(self.xk)
@@ -156,7 +157,8 @@ class RSGLC(constrained_optimization_solver):
   def generate_matrix(self,dim,reduced_dim,mode):
     # (dim,reduced_dim)の行列を生成
     if mode == "random":
-      return torch.randn(reduced_dim,dim,device = self.device,dtype=self.dtype)/dim
+      P = torch.randn(reduced_dim,dim,device = self.device,dtype=self.dtype)/dim
+      return P
     elif mode == "identity":
       return None
     else:

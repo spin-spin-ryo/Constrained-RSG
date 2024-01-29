@@ -28,9 +28,9 @@ def load_config(config_path):
 def plot_results(save_path,values_dict):
 	for k,v in values_dict.items():
 		plt.plot(np.arange(len(v)),v)
-		plt.savefig(os.path.join(save_path,k+".png"))
 		if k == "grad_norm":
 			plt.yscale("log")
+		plt.savefig(os.path.join(save_path,k+".png"))
 		plt.close()
 
 def save_result_json(save_path,values_dict:dict,iteration):

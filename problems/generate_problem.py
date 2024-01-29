@@ -161,7 +161,7 @@ def generate_matrix_factorization_completion(properties):
     data_name = properties["data_name"]
     rank = int(properties["rank"])
     if data_name == "movie":
-        with open(os.path.join(DATAPATH,"movie","movie_100k.pth"),"rb") as data:
+        with open(os.path.join(DATAPATH,"movie","movie_train_100k.pth"),"rb") as data:
             U = pickle.load(data)
     
     params = [U,rank]
