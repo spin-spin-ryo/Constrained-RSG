@@ -2,6 +2,8 @@ from problems.objectives import *
 from problems.constraints import *
 from environments import *
 import pickle
+import torch.nn.functional as F
+import torch.nn as nn
 from utils.calculate import generate_symmetric,generate_semidefinite,nonnegative_projection,L1projection,BallProjection,BoxProjection
 import os
 
@@ -11,7 +13,7 @@ objective_properties_key ={
     MATRIXFACTORIZATION:["data_name","rank"],
     MATRIXFACTORIZATION_COMPLETION:["data_name","rank"],
     LEASTSQUARE:["data_name","data_size","dim"],
-    MLPNET: ["data_name","layers_size"],
+    MLPNET: ["data_name","layers_size","activation","criterion"],
     CNN: ["data_name","layers_size"]
 }
 
@@ -205,13 +207,29 @@ def generate_least_square(properties):
 def generate_mlpnet(properties):
     data_name = properties["data_name"]
     layers_size = properties["layers_size"]
+    activation_name = properties["activation"]
+    criterion_name = properties["criterion"]
+    if activation_name == "sigmoid":
+        activation = torch.sigmoid
+    elif activation_name == "relu":
+        activation = F.relu
+    elif activation_name == "mish":
+        activation = F.mish
+    else:
+        raise ValueError("No activation")
+    
+    if criterion_name == "CrossEntropy":
+        criterion = nn.CrossEntropyLoss()
+    else:
+        raise ValueError("No criterion")
+
     if data_name == "mnist":
         data_path = os.path.join(DATAPATH,"mnist","mlpnet")
         data = torch.load(os.path.join(data_path,"mnist_data.pth"))
         label = torch.load(os.path.join(data_path,"mnist_label.pth"))
     
     params = [data,label,layers_size]
-    f = MLPNET(params)
+    f = MLPNet(params,activation=activation,criterion=criterion)
     return f
 
 def generate_cnn(properties):
