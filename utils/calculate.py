@@ -49,39 +49,39 @@ def nonnegative_projection(x,t):
     y[y<0]=0
     return y
 
-# def BallProjection(x,error = 1):
-#     if x@x <= error:
-#         return x
-#     else:
-#         return (error**(1/2))*x/torch.linalg.norm(x)
+def BallProjection(x,radius = 1):
+    if x@x <= radius*radius:
+        return x
+    else:
+        return (radius)*x/torch.linalg.norm(x)
 
-# def BoxProjection(x,error = 1):
-#     y = x.detach().clone()
-#     y[y>error] = error
-#     y[y<-error] = -error
-#     return y
+def BoxProjection(x,radius = 1):
+    y = x.detach().clone()
+    y[y>radius] = radius
+    y[y<-radius] = -radius
+    return y
 
-# def L1projection(x,error = 1):
-#   if torch.linalg.norm(x,ord=1)<=error:
-#     return x
-#   else:
-#     x_ = x.detach().clone()
+def L1projection(x,radius = 1):
+  if torch.linalg.norm(x,ord=1)<=radius:
+    return x
+  else:
+    x_ = x.detach().clone()
     
-#     x_/=error
-#     y = torch.sort(torch.abs(x_))[0]
-#     l = 0
-#     r = y.shape[0]
-#     while r-l > 1:
-#       m = int((l+r)/2)
-#       lam = y[m]
-#       z = y -lam
-#       index = z >0
-#       if torch.sum(z[index])>1:
-#         l = m
-#       else:
-#         r = m
-#     lam = (torch.sum(y[r:]) -1)/y[r:].shape[0]
-#     z = torch.zeros(y.shape,device = y.device,dtype = y.dtype)
-#     z[x_>lam] = (x_-lam)[x_ >lam]
-#     z[x_<-lam] =(x_+lam)[x_ <-lam]
-#     return z*error
+    x_/=radius
+    y = torch.sort(torch.abs(x_))[0]
+    l = 0
+    r = y.shape[0]
+    while r-l > 1:
+      m = int((l+r)/2)
+      lam = y[m]
+      z = y -lam
+      index = z >0
+      if torch.sum(z[index])>1:
+        l = m
+      else:
+        r = m
+    lam = (torch.sum(y[r:]) -1)/y[r:].shape[0]
+    z = torch.zeros(y.shape,device = y.device,dtype = y.dtype)
+    z[x_>lam] = (x_-lam)[x_ >lam]
+    z[x_<-lam] =(x_+lam)[x_ <-lam]
+    return z*radius

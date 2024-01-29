@@ -58,6 +58,10 @@ class GradientProjectionMethod(constrained_optimization_solver):
     super().__init__(device, dtype)
     self.params_key = ["eps","delta","alpha","beta","backward"]
     self.lk = None
+    # eps: active set
+    # delta: gradient norm
+    # alpha: stepsize
+    # beta: linesearch
 
   def get_activate_grads(self,eps):
     # output: (*,n)
@@ -74,7 +78,7 @@ class GradientProjectionMethod(constrained_optimization_solver):
     beta = params["beta"]
     # (*,n)
     Gk = self.get_activate_grads(eps) 
-    grad = self.__first_order_oracle__()
+    grad = self.__first_order_oracle__(self.xk)
     d = self.__direction__(grad,Gk)
     if torch.linalg.norm(d) < delta:
       if torch.min(self.lk) >=0 :
@@ -97,7 +101,7 @@ class GradientProjectionMethod(constrained_optimization_solver):
       return alpha
 
   def __direction__(self,grad,Gk):
-    if len(Gk) == 0:
+    if len(Gk) != 0:
       GG = Gk@Gk.transpose(0,1)
       self.lk = - torch.linalg.solve(GG,Gk@grad)
       return -grad - Gk.transpose(0,1)@self.lk

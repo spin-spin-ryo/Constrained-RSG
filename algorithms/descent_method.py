@@ -24,6 +24,7 @@ class optimization_solver:
   def __first_order_oracle__(self,x,output_loss = False):
     if self.backward_mode:
       x.requires_grad_(True)
+      x.grad = None
       loss = self.__zeroth_order_oracle__(x)  
       loss.backward()
       x.requires_grad_(False)
@@ -366,7 +367,7 @@ class BacktrackingProximalGD(optimization_solver):
       if max_iter < 0:
         logger.info("Error: Backtracking is stopped because of max_iteration.")
         break
-    return prox_x,x
+    return prox_x,t
   
   def __iter_per__(self, params):
     beta = params["beta"]
@@ -422,8 +423,8 @@ class BacktrackingAcceleratedProximalGD(BacktrackingProximalGD):
       if loss_v is None:
         with torch.no_grad():
           loss_v = self.f(v)
-      prox_x = self.prox(v-self.t*grad_v,self.t)
-      while self.t*self.f(prox_x) > self.t*loss_v + self.t*grad_v@(prox_x - v) + 1/2*((prox_x - v)@(prox_x - v)):
-          self.t *= beta
-          prox_x = self.prox(v-self.t*grad_v,self.t)    
-      return prox_x,self.t
+      prox_x = self.prox(v-self.tk*grad_v,self.tk)
+      while self.tk*self.f(prox_x) > self.tk*loss_v + self.tk*grad_v@(prox_x - v) + 1/2*((prox_x - v)@(prox_x - v)):
+          self.tk *= beta
+          prox_x = self.prox(v-self.tk*grad_v,self.tk)    
+      return prox_x,self.tk

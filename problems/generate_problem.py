@@ -2,7 +2,7 @@ from problems.objectives import *
 from problems.constraints import *
 from environments import *
 import pickle
-from utils.calculate import generate_symmetric,generate_semidefinite
+from utils.calculate import generate_symmetric,generate_semidefinite,nonnegative_projection,L1projection,BallProjection,BoxProjection
 import os
 
 objective_properties_key ={
@@ -44,15 +44,27 @@ def generate_objective(function_name,function_properties):
     return f
 
 def generate_constraints(constraints_name, constraints_properties):
+    prox = None
     if constraints_name == POLYTOPE:
         constraints = generate_polytope(constraints_properties)
     elif constraints_name == NONNEGATIVE:
+        prox = nonnegative_projection
         constraints = generate_nonnegative(constraints_properties)
     elif constraints_name == QUADRATIC:
         constraints = generate_quadratic_constraints(constraints_properties)
     elif constraints_name == FUSEDLASSO:
         constraints = generate_fusedlasso(constraints_properties)
     elif constraints_name == BALL:
+        ord = constraints_properties["ord"]
+        threshold = constraints_properties["threshold"]
+        if ord == 1:
+            def prox(x,t):
+                return L1projection(x,radius=threshold)
+        elif ord == 2:
+            def prox(x,t):
+                return BallProjection(x,radius=threshold**(0.5))
+        else:
+            raise ValueError("No proximal function")
         constraints = generate_ball(constraints_properties)
     elif constraints_name == HUBER:
         constraints = generate_huber(constraints_properties)
@@ -60,7 +72,7 @@ def generate_constraints(constraints_name, constraints_properties):
         constraints = None
     else:
         raise ValueError(f"{constraints_name} is not implemented.")
-    return constraints    
+    return constraints, prox
 
 def generate_initial_points(func,function_name,constraints_name,function_properties):
     dim = func.get_dimension()

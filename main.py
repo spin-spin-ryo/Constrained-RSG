@@ -5,6 +5,8 @@ import os
 import torch
 import sys
 from utils.logger import logger
+PROXIMAL_METHODS = [PROXIMAL_GRADIENT_DESCENT,ACCELERATED_PROXIMAL_GRADIENT_DESCENT]
+
 
 
 def run_numerical_experiment(config):
@@ -17,7 +19,9 @@ def run_numerical_experiment(config):
   objective_name = objectives_config["objective_name"]
   constraints_name = constraints_config["constraints_name"]
 
-  solver,solver_params,f,function_properties,con,constraints_properties,x0 = get_objects_from_config(config)
+  use_prox = solver_name in PROXIMAL_METHODS
+
+  solver,solver_params,f,function_properties,con,constraints_properties,x0, prox = get_objects_from_config(config)
   solver_dir = get_path_form_params(solver_params)
   func_dir = get_path_form_params(function_properties)
   f.set_device(DEVICE)
@@ -38,8 +42,6 @@ def run_numerical_experiment(config):
       logger.info("Initial point is feasible.")
     else:
       logger.info("Initial point is not feasible")
-  
-
   else:
     save_path = os.path.join(RESULTPATH,
                             objective_name,func_dir,
@@ -51,14 +53,23 @@ def run_numerical_experiment(config):
   # 実験開始
   logger.info("Run Numerical Experiments")
   if constraints_name != NOCONSTRAINTS:
-    solver.run(f=f,
-              con=con,
-              x0=x0,
-              iteration=iteration,
-              params=solver_params,
-              save_path=save_path,
-              log_interval=log_interval
-              )
+    if use_prox:
+      solver.run(f=f,
+                 prox=prox,
+                 x0=x0,
+                 iteration=iteration,
+                 params=solver_params,
+                 save_path=save_path,
+                 log_interval=log_interval)
+    else:
+      solver.run(f=f,
+                con=con,
+                x0=x0,
+                iteration=iteration,
+                params=solver_params,
+                save_path=save_path,
+                log_interval=log_interval
+                )
   else:
     solver.run(f=f,
               x0=x0,

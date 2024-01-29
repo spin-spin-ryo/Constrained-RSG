@@ -1,7 +1,6 @@
 from algorithms.solver import get_solver
 from problems.generate_problem import generate_objective,generate_constraints,generate_initial_points,objective_properties_key,constraints_properties_key
-from environments import NOCONSTRAINTS,DEVICE,DTYPE
-
+from environments import NOCONSTRAINTS,DEVICE,DTYPE,PROXIMAL_GRADIENT_DESCENT,ACCELERATED_PROXIMAL_GRADIENT_DESCENT
 
 def get_objects_from_config(config):
     algorithms_config = config["algorithms"]
@@ -16,6 +15,7 @@ def get_objects_from_config(config):
     for param in solver.params_key:
       solver_params[param] = algorithms_config[param]
     
+    
     # objectiveを取得
     objective_name = objectives_config["objective_name"]
     function_properties = {}
@@ -29,16 +29,18 @@ def get_objects_from_config(config):
     if constraints_name != NOCONSTRAINTS:
       for param in constraints_properties_key[constraints_name]:
         constraints_properties[param] = constraints_config[param]
-      con = generate_constraints(constraints_name=constraints_name,constraints_properties=constraints_properties)
+      con,prox = generate_constraints(constraints_name=constraints_name,constraints_properties=constraints_properties)
     else:
       con = None
-      
+      prox = None
+    
+        
     x0 = generate_initial_points(func=f,
                                  function_name=objective_name,
                                  constraints_name=constraints_name,
                                  function_properties=function_properties)
     
-    return solver,solver_params,f,function_properties,con,constraints_properties,x0
+    return solver,solver_params,f,function_properties,con,constraints_properties,x0, prox
 
 
         
