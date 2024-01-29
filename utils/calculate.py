@@ -4,7 +4,6 @@ def inverse_xy(x,y):
     dim = x.shape[0]
     device = x.device
     dtype = x.dtype
-    x = x.reshape()
     # (I+xy^\top)^{-1}を求める.
     return torch.eye(dim,device=device,dtype=dtype) - (x.unsqueeze(1)@y.unsqueeze(0))/(1+x@y)
 

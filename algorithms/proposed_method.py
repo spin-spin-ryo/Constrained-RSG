@@ -191,18 +191,18 @@ class RSGNC(RSGLC):
     alpha2 = params["alpha2"]
     beta = params["beta"]
     r = params["r"]
-
+    Gk = self.get_active_constraints_grads(eps0)
     Mk = self.generate_matrix(dim,reduced_dim,mode)
-    GkMk = self.get_active_constraints_projected_grads(Mk,eps0)
+    GkMk = self.get_projected_gradient_by_matmul(Mk,Gk)
     # M_k^\top \nabla f
-    projected_grad = self.subspace_first_order_oracle(self.xk,Mk,reduced_dim)
+    projected_grad = self.subspace_first_order_oracle(self.xk,Mk)
     d = self.__direction__(projected_grad,active_constraints_projected_grads=GkMk,delta1=delta1,eps2=eps2,dim=dim,reduced_dim=reduced_dim,r = r)
     if d is None:
       return
     if Mk is None:
       Md = d
     else:
-      Md = Mk@d
+      Md = Mk.transpose(0,1)@d
     if self.first_check:
       alpha =self.__step_size__(Md,alpha2,beta)
     else:
