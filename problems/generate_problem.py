@@ -66,7 +66,7 @@ def generate_initial_points(func,function_name,constraints_name,function_propert
     dim = func.get_dimension()
     # 非負制約の時のみすべて1
     if constraints_name == NONNEGATIVE:
-        x0 = torch.zeros(dim)
+        x0 = torch.ones(dim)
         return x0
     
     if function_name == MLPNET:

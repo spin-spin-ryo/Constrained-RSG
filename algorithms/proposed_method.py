@@ -2,6 +2,7 @@ import torch
 from algorithms.constrained_descent_method import constrained_optimization_solver
 from utils.calculate import inverse_xy
 import time
+from utils.logger import logger
 
 class RSGLC(constrained_optimization_solver):
   def __init__(self, device="cpu", dtype=torch.float64) -> None:
@@ -9,6 +10,7 @@ class RSGLC(constrained_optimization_solver):
     self.first_check = False
     self.active_num = 0
     self.grad_norm = 0
+    self.reduced_dim = 0
     super().__init__(device, dtype)
     self.params_key = ["eps0",
                   "delta1",
@@ -20,7 +22,7 @@ class RSGLC(constrained_optimization_solver):
                   "beta",
                   "mode",
                   "backward"]
-    
+  
   def subspace_first_order_oracle(self,x,Mk):
     reduced_dim = Mk.shape[0]
     subspace_func = lambda d:self.f(x + Mk.transpose(0,1)@d)
@@ -35,19 +37,23 @@ class RSGLC(constrained_optimization_solver):
     delta1 = params["delta1"]
     eps2 = params["eps2"]
     dim = params["dim"]
-    reduced_dim = params["reduced_dim"]
     mode = params["mode"]
     alpha1 = params["alpha1"]
     alpha2 = params["alpha2"]
     beta = params["beta"]
-
-
-    Mk = self.generate_matrix(dim,reduced_dim,mode)
-    GkMk = self.get_active_constraints_projected_grads(Mk,eps0)
+    Gk = self.get_active_constraints_grads(eps0)
+    while self.reduced_dim-self.active_num < 5:
+      self.reduced_dim += 10
+      if self.reduced_dim > dim:
+        self.reduced_dim = dim
+        break
+    Mk = self.generate_matrix(dim,self.reduced_dim,mode)
+    GkMk = self.get_projected_gradient_by_matmul(Mk,Gk)
     # M_k^\top \nabla f
     projected_grad = self.subspace_first_order_oracle(self.xk,Mk)
     self.grad_norm = torch.linalg.norm(projected_grad)
-    d = self.__direction__(projected_grad,active_constraints_projected_grads=GkMk,delta1=delta1,eps2=eps2,dim=dim,reduced_dim=reduced_dim)
+    
+    d = self.__direction__(projected_grad,active_constraints_projected_grads=GkMk,delta1=delta1,eps2=eps2,dim=dim,reduced_dim=self.reduced_dim)
     if d is None:
       return
     if Mk is None:
@@ -83,13 +89,12 @@ class RSGLC(constrained_optimization_solver):
       self.first_check = True
       if self.check_lambda(eps2):
         self.finish = True
-        
         return None
       else:
         l = self.lk.clone()
         l[l>0] = 0
         l *= reduced_dim/dim
-        direction2 = -torch.linalg.solve(A,l)
+        direction2 = -active_constraints_projected_grads.transpose(0,1)@torch.linalg.solve(A,l)
         return direction2
     else:
       return direction1
@@ -100,8 +105,12 @@ class RSGLC(constrained_optimization_solver):
   
   def __run_init__(self, f, con, x0, iteration):
     self.save_values["active"] = torch.zeros(iteration+1)
-    self.save_values["grad_norm"] = torch.zeros(iteration+1)
+    self.save_values["grad_norm"] = torch.zeros(iteration+1)  
     return super().__run_init__(f, con, x0, iteration)
+  
+  def run(self, f, con, x0, iteration, params, save_path, log_interval=-1):
+    self.reduced_dim = params["reduced_dim"]
+    return super().run(f, con, x0, iteration, params, save_path, log_interval)
 
   def update_save_values(self, iter, **kwargs):
     self.save_values["active"][iter] = self.active_num
@@ -123,7 +132,9 @@ class RSGLC(constrained_optimization_solver):
     else:
       return G@Mk.transpose(0,1) 
 
-  def get_active_constraints_projected_grads(self,Mk,eps0):
+    
+    
+  def get_active_constraints_grads(self,eps0):
     constraints_values = self.evaluate_constraints_values(self.xk)
     constraints_grads = self.evaluate_constraints_grads(self.xk)
     constraints_grads_norm = torch.linalg.norm(constraints_grads,dim = 1)
@@ -132,10 +143,7 @@ class RSGLC(constrained_optimization_solver):
                                                            eps0=eps0)
     active_constraints_grads = constraints_grads[active_constraints_index]
     self.active_num = len(active_constraints_grads)
-    active_constraints_projected_grads = self.get_projected_gradient_by_matmul(Mk=Mk,
-                                                                               G = active_constraints_grads)
-    
-    return active_constraints_projected_grads
+    return active_constraints_grads
 
   def check_norm(self,d,delta1):
     return torch.linalg.norm(d) <= delta1
