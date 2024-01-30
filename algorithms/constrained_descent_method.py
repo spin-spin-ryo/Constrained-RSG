@@ -273,7 +273,7 @@ class PrimalDualInteriorPointMethod(constrained_optimization_solver):
       r_t_z = self.get_r_t(l,t,grad,constraints_values,constraints_grads)
 
       if not torch.linalg.norm(r_t_z) <= (1 - alpha * s)*torch.linalg.norm(r_t):
-        s *= self.beta     
+        s *= beta     
       break    
     return s
   

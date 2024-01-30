@@ -121,8 +121,8 @@ def generate_quadratic(properties):
                 torch.save(b,os.path.join(Quadratic_data_path,filename_b))
         else:   
             Quadratic_data_path = os.path.join(DATAPATH,"quadratic","nonconvex")
-            filename_Q = f"Q_{dim}_{rank}.pth"
-            filename_b = f"b_{dim}_{rank}.pth"
+            filename_Q = f"Q_{dim}.pth"
+            filename_b = f"b_{dim}.pth"
             if os.path.exists(os.path.join(Quadratic_data_path,filename_Q)):
                 Q = torch.load(os.path.join(Quadratic_data_path,filename_Q))
                 b = torch.load(os.path.join(Quadratic_data_path,filename_b))
