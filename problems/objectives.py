@@ -163,10 +163,10 @@ class CNNet(Objective):
       for input_channels,output_channels,kernel_size,bias_flag in self.params[4]:
         used_variables_num += input_channels*output_channels*kernel_size*kernel_size
         data_size = data_size + 4 + 1 - kernel_size
-        data_size /= 2
+        data_size //= 2
         if bias_flag == 1:
           used_variables_num += output_channels
-      used_variables_num += data_size*class_num + class_num
+      used_variables_num += data_size*data_size*output_channels*class_num + class_num
       return used_variables_num
 
     def __call__(self,x):
@@ -190,7 +190,7 @@ class CNNet(Objective):
           z = F.conv2d(input = z,weight = filters[i], bias = bias[i],padding = 2)
         else:
           z = F.conv2d(input = z,weight = filters[i], padding = 2)
-        z = torch.sigmoid(z)
+        z = self.activate(z)
         # (data_num,input_channnels,height,width) -> (data_num,input_channnels,height//2,width//2)
         z = F.avg_pool2d(input = z , kernel_size= 2)
     

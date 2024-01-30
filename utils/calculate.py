@@ -1,4 +1,6 @@
 import torch
+from torch.autograd.functional import jvp
+import torch.autograd.forward_ad as fwAD
 
 def inverse_xy(x,y):
     dim = x.shape[0]
@@ -84,3 +86,10 @@ def L1projection(x,radius = 1):
     z[x_>lam] = (x_-lam)[x_ >lam]
     z[x_<-lam] =(x_+lam)[x_ <-lam]
     return z*radius
+
+def get_jvp(func,primal,tangent):
+  with fwAD.dual_level():
+    dual_input = fwAD.make_dual(primal, tangent)
+    dual_output = func(dual_input)
+    jvp = fwAD.unpack_dual(dual_output).tangent
+  return jvp

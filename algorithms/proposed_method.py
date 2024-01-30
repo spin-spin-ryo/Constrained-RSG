@@ -1,10 +1,11 @@
 import torch
 from algorithms.constrained_descent_method import constrained_optimization_solver
-from utils.calculate import inverse_xy
+from utils.calculate import inverse_xy,get_jvp
 import time
 from utils.logger import logger
 import random
 import numpy as np
+from environments import DIRECTIONALDERIVATIVE,FINITEDIFFERENCE
 
 
 
@@ -30,11 +31,18 @@ class RSGLC(constrained_optimization_solver):
   def subspace_first_order_oracle(self,x,Mk):
     reduced_dim = Mk.shape[0]
     subspace_func = lambda d:self.f(x + Mk.transpose(0,1)@d)
-    if self.backward_mode:
+    if isinstance(self.backward_mode,str):
+      if self.backward_mode == DIRECTIONALDERIVATIVE:
+        v = torch.zeros(reduced_dim,device = self.device,dtype = self.dtype)
+        for i in range(reduced_dim):
+          v[i] = get_jvp(self.f,x,Mk[i])
+        return v
+    elif self.backward_mode:
       d = torch.zeros(reduced_dim,requires_grad=True,device=self.device,dtype=self.dtype)
       loss_d = subspace_func(d)
       loss_d.backward()
       return d.grad
+     
   
   def __iter_per__(self,params):
     eps0 = params["eps0"]

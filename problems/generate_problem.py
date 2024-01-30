@@ -15,7 +15,7 @@ objective_properties_key ={
     MATRIXFACTORIZATION_COMPLETION:["data_name","rank"],
     LEASTSQUARE:["data_name","data_size","dim"],
     MLPNET: ["data_name","layers_size","activation","criterion"],
-    CNN: ["data_name","layers_size"]
+    CNN: ["data_name","layers_size","activation","criterion"]
 }
 
 constraints_properties_key = {
@@ -237,6 +237,7 @@ def generate_cnn(properties):
         data = torch.load(os.path.join(data_path,"images.pth"))
         label = torch.load(os.path.join(data_path,"labels.pth"))
         data_size = data.shape[2]
+        print("data_size:",data_size)
         class_num = (torch.unique(label)).shape[0]
     
     params = [data,label,class_num,data_size,layers_size]
