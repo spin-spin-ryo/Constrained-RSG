@@ -56,7 +56,6 @@ class RSGLC(constrained_optimization_solver):
     # M_k^\top \nabla f
     projected_grad = self.subspace_first_order_oracle(self.xk,Mk)
     d = self.__direction__(projected_grad,active_constraints_projected_grads=GkMk,delta1=delta1,eps2=eps2,dim=dim,reduced_dim=self.reduced_dim)
-    self.grad_norm = torch.linalg.norm(d)
     if d is None:
       return
     if Mk is None:
@@ -87,7 +86,7 @@ class RSGLC(constrained_optimization_solver):
       A = active_constraints_projected_grads@active_constraints_projected_grads.transpose(0,1)
       self.lk = torch.linalg.solve(A,-b)
       direction1 = -projected_grad - active_constraints_projected_grads.transpose(0,1)@self.lk
-
+    self.grad_norm = torch.linalg.norm(direction1)
     if self.check_norm(direction1,delta1):
       self.first_check = True
       if self.check_lambda(eps2):
@@ -228,6 +227,7 @@ class RSGNC(RSGLC):
       lk_bar = -(GMMG_inv@(inverse_xy(v,self.lk)@(GMMf - rk*projected_grad_norm*wk)))
       direction1 = -projected_grad - active_constraints_projected_grads.transpose(0,1)@lk_bar
 
+    self.grad_norm = torch.linalg.norm(direction1)
     if self.check_norm(direction1,delta1):
       self.first_check = True
       if self.check_lambda(eps2):

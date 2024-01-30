@@ -194,7 +194,7 @@ class PrimalDualInteriorPointMethod(constrained_optimization_solver):
     return - constraints_values@self.lk
   
   def __iter_per__(self, params):
-    mu = params["mu"]
+    mu = params["mu"] # mu > 1
     eps = params["eps"]
     eps_feas = params["eps_feas"]
     m = self.con.get_number_of_constraints()

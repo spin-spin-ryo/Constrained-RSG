@@ -282,12 +282,12 @@ def generate_quadratic_constraints(properties):
         if os.path.exists(os.path.join(data_path,filename_Q)):
             Q = torch.load(os.path.join(data_path,filename_Q))
             b = torch.load(os.path.join(data_path,filename_b))
-            c = torch.ones(constraints_num)
+            c = -torch.ones(constraints_num)
         else:
             P = torch.randn(constraints_num,dim,dim)
             Q = torch.matmul(P,P.transpose(1,2))/dim
             b = torch.randn(constraints_num,dim)
-            c = torch.ones(constraints_num)
+            c = -torch.ones(constraints_num)
             os.makedirs(data_path,exist_ok=True)
             torch.save(Q,os.path.join(data_path,filename_Q))
             torch.save(b,os.path.join(data_path,filename_b))

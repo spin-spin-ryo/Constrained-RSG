@@ -42,6 +42,7 @@ def run_numerical_experiment(config):
       logger.info("Initial point is feasible.")
     else:
       logger.info("Initial point is not feasible")
+      return
   else:
     save_path = os.path.join(RESULTPATH,
                             objective_name,func_dir,
