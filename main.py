@@ -22,13 +22,14 @@ def run_numerical_experiment(config):
   use_prox = solver_name in PROXIMAL_METHODS
 
   solver,solver_params,f,function_properties,con,constraints_properties,x0, prox = get_objects_from_config(config)
-  solver_dir = get_path_form_params(solver_params)
-  func_dir = get_path_form_params(function_properties)
   f.set_device(DEVICE)
   f.set_type(DTYPE)
   x0 = x0.to(DEVICE).to(DTYPE)
-
   logger.info(f"dimensiton:{f.get_dimension()}")
+  
+  
+  solver_dir = get_path_form_params(solver_params)
+  func_dir = get_path_form_params(function_properties)
   
   if constraints_name != NOCONSTRAINTS:
     con_dir = get_path_form_params(constraints_properties)

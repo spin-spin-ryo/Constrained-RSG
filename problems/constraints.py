@@ -138,7 +138,7 @@ class Ball(constraints):
     def grad(self,x):
         y = x.detach().clone()
         y.requires_grad_(True)
-        self.Value(y).backward()
+        self(y).backward()
         return y.grad.reshape(1,-1)
     
     def get_number_of_constraints(self):

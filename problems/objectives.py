@@ -118,6 +118,7 @@ class MLPNet(Objective):
     self.activate = activation
   
   def get_dimension(self):
+    used_variables_num = 0
     for input_size,output_size,bias_flag in self.params[2]:
       used_variables_num += input_size*output_size
       if bias_flag == 1:

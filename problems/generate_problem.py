@@ -228,6 +228,8 @@ def generate_mlpnet(properties):
         data = torch.load(os.path.join(data_path,"mnist_data.pth"))
         label = torch.load(os.path.join(data_path,"mnist_label.pth"))
     
+    else:
+        raise ValueError(f"{data_name} does not exist.")
     params = [data,label,layers_size]
     f = MLPNet(params,activation=activation,criterion=criterion)
     return f
