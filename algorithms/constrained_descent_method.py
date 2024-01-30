@@ -184,6 +184,8 @@ class PrimalDualInteriorPointMethod(constrained_optimization_solver):
       "mu",
       "eps",
       "eps_feas",
+      "beta", #0.8
+      "alpha", # 0.3
       "backward"
     ]
   
@@ -192,6 +194,11 @@ class PrimalDualInteriorPointMethod(constrained_optimization_solver):
   
   def get_surrogate_duality_gap(self,constraints_values):
     return - constraints_values@self.lk
+  
+  def __run_init__(self, f, con, x0, iteration):
+    m = con.get_number_of_constraints()
+    self.lk = torch.ones(m,dtype = self.dtype,device = self.device)
+    return super().__run_init__(f, con, x0, iteration)
   
   def __iter_per__(self, params):
     mu = params["mu"] # mu > 1
@@ -251,7 +258,7 @@ class PrimalDualInteriorPointMethod(constrained_optimization_solver):
     if torch.all(delta_l>=0):
         s_max = 1
     else:
-        s_max = torch.min([1, torch.min(-self.lk[delta_l<0]/delta_l[delta_l<0] )])
+        s_max = torch.min(torch.tensor([1, torch.min(-self.lk[delta_l<0]/delta_l[delta_l<0] )],device = self.device,dtype = self.dtype))
     s = 0.99*s_max
     
     while True:
