@@ -5,6 +5,7 @@ from torch.autograd.functional import hessian
 from utils.calculate import line_search,subspace_line_search,get_minimum_eigenvalue
 from utils.logger import logger
 import os
+from environments import FINITEDIFFERENCE,DIRECTIONALDERIVATIVE
 
 class optimization_solver:
   def __init__(self,device = "cpu",dtype = torch.float64) -> None:
@@ -32,6 +33,15 @@ class optimization_solver:
         return x.grad,loss.item()
       else:
         return x.grad
+    
+    elif isinstance(self.backward_mode,str):
+      if self.backward_mode == DIRECTIONALDERIVATIVE:
+        pass
+      elif self.backward_mode == FINITEDIFFERENCE:
+        pass
+      else:
+        raise ValueError(f"{self.backward_mode} is not implemented.")
+      
   
   def __second_order_oracle__(self,x):
     H = hessian(self.f,x)

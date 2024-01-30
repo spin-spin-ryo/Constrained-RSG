@@ -43,3 +43,7 @@ RSG_NC = "proposed_nonlinear"
 
 DISTINCT_PARAM_VALUE = "@"
 DISTINCT_PARAMS = "~"
+
+# 勾配計算の仕方
+DIRECTIONALDERIVATIVE = "DD"
+FINITEDIFFERENCE = "FD"

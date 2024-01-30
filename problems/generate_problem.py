@@ -5,6 +5,7 @@ import pickle
 import torch.nn.functional as F
 import torch.nn as nn
 from utils.calculate import generate_symmetric,generate_semidefinite,nonnegative_projection,L1projection,BallProjection,BoxProjection
+from utils.select import get_activation,get_criterion
 import os
 
 objective_properties_key ={
@@ -209,20 +210,9 @@ def generate_mlpnet(properties):
     layers_size = properties["layers_size"]
     activation_name = properties["activation"]
     criterion_name = properties["criterion"]
-    if activation_name == "sigmoid":
-        activation = torch.sigmoid
-    elif activation_name == "relu":
-        activation = F.relu
-    elif activation_name == "mish":
-        activation = F.mish
-    else:
-        raise ValueError("No activation")
+    activation = get_activation(activation_name)
+    criterion = get_criterion(criterion_name)
     
-    if criterion_name == "CrossEntropy":
-        criterion = nn.CrossEntropyLoss()
-    else:
-        raise ValueError("No criterion")
-
     if data_name == "mnist":
         data_path = os.path.join(DATAPATH,"mnist","mlpnet")
         data = torch.load(os.path.join(data_path,"mnist_data.pth"))
@@ -237,6 +227,11 @@ def generate_mlpnet(properties):
 def generate_cnn(properties):
     data_name = properties["data_name"]
     layers_size = properties["layers_size"]
+    activation_name = properties["activation"]
+    criterion_name = properties["criterion"]
+    activation = get_activation(activation_name)
+    criterion = get_criterion(criterion_name)
+
     if data_name == "mnist":
         data_path = os.path.join(DATAPATH,"mnist","cnn")
         data = torch.load(os.path.join(data_path,"images.pth"))
@@ -245,7 +240,7 @@ def generate_cnn(properties):
         class_num = (torch.unique(label)).shape[0]
     
     params = [data,label,class_num,data_size,layers_size]
-    f = CNNet(params)
+    f = CNNet(params,criterion=criterion,activation=activation)
     return f
 
 def generate_polytope(properties):
