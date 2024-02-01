@@ -1,75 +1,88 @@
-import torch
-from torch.autograd.functional import jvp
-import torch.autograd.forward_ad as fwAD
+from jax import jacrev,jacfwd
+import jax.numpy as jnp
+from jax.lax import transpose
+from jax import random
+from environments import key
+import numpy as np
+
+def hessian(f):
+    return jacfwd(jacrev(f))
+
 
 def inverse_xy(x,y):
     dim = x.shape[0]
-    device = x.device
     dtype = x.dtype
     # (I+xy^\top)^{-1}を求める.
-    return torch.eye(dim,device=device,dtype=dtype) - (x.unsqueeze(1)@y.unsqueeze(0))/(1+x@y)
+    return jnp.eye(dim,dtype=dtype) - (jnp.expand_dims(x,0)@jnp.expand_dims(y,1))/(1+x@y)
 
 def get_minimum_eigenvalue(H):
-    return torch.lobpcg(H,largest=False)[0][0]
+    return jnp.min(jnp.linalg.eigvals(H))
 
 def get_maximum_eigenvalue(H):
-    return torch.lobpcg(H)[0][0]
+    return jnp.max(jnp.linalg.eigvals(H))
 
 def line_search(xk,func,grad,dk,alpha,beta,loss = None):
-   if loss is None:
-      with torch.no_grad():
-         loss = func(xk)
-   lr = 1
-   with torch.no_grad():
-      while loss.item() - func(xk + lr*dk) < -alpha*lr*grad@dk:
-            lr *= beta 
-   return lr
+  if loss is None:
+    loss = func(xk)
+  lr = 1
+  while loss - func(xk + lr*dk) < -alpha*lr*grad@dk:
+    lr *= beta 
+  return lr
 
 def subspace_line_search(xk,func,projected_grad,dk,Mk,alpha,beta,loss = None):
     if loss is None:
-      with torch.no_grad():
-         loss = func(xk)
+      loss = func(xk)
     lr = 1
-    proj_dk = Mk.transpose(0,1)@dk
-    with torch.no_grad():
-        while loss.item() - func(xk + lr*proj_dk) < -alpha*lr*projected_grad@dk:
-                lr *= beta 
+    proj_dk = transpose(Mk,(1,0))@dk
+    while loss.item() - func(xk + lr*proj_dk) < -alpha*lr*projected_grad@dk:
+      lr *= beta 
     return lr
 
-def generate_semidefinite(dim,rank,device):
-   P = torch.randn(dim,rank,device = device)
-   return P@P.transpose(0,1)/dim
+def generate_semidefinite(dim,rank):
+   global key
+   P = random.normal(key,(dim,rank))
+   key, _ = random.split(key)
+   return P@transpose(P,(1,0))/dim
 
 def generate_symmetric(dim,device):
-   P = torch.randn(dim,dim,device = device)
-   return (P + P.transpose(0,1))/2
+   global key
+   P = random.normal(key,(dim,dim))
+   key, _ = random.split(key)
+   return (P + transpose(P,(1,0)))/2
+
+def jax_randn(*args):
+   global key
+   P = random.normal(key,args)
+   key, _ = random.split(key)
+   return P
 
 
 def nonnegative_projection(x,t):
-    y = x.detach().clone()
-    y[y<0]=0
-    return y
+    y = np.zeros(x.size,dtype=x.dtype)
+    index = x > 0
+    y[index] = x[index] 
+    return jnp.array(y)
 
 def BallProjection(x,radius = 1):
     if x@x <= radius*radius:
         return x
     else:
-        return (radius)*x/torch.linalg.norm(x)
+        return (radius)*x/jnp.linalg.norm(x)
 
 def BoxProjection(x,radius = 1):
-    y = x.detach().clone()
+    y = np.array(x.copy())
     y[y>radius] = radius
     y[y<-radius] = -radius
-    return y
+    return jnp.array(y)
 
 def L1projection(x,radius = 1):
-  if torch.linalg.norm(x,ord=1)<=radius:
+  if jnp.linalg.norm(x,ord=1)<=radius:
     return x
   else:
-    x_ = x.detach().clone()
+    x_ = x.copy()
     
     x_/=radius
-    y = torch.sort(torch.abs(x_))[0]
+    y = jnp.sort(jnp.abs(x_))[0]
     l = 0
     r = y.shape[0]
     while r-l > 1:
@@ -77,19 +90,19 @@ def L1projection(x,radius = 1):
       lam = y[m]
       z = y -lam
       index = z >0
-      if torch.sum(z[index])>1:
+      if jnp.sum(z[index])>1:
         l = m
       else:
         r = m
-    lam = (torch.sum(y[r:]) -1)/y[r:].shape[0]
-    z = torch.zeros(y.shape,device = y.device,dtype = y.dtype)
+    lam = (jnp.sum(y[r:]) -1)/y[r:].shape[0]
+    z = np.zeros(y.shape,dtype = y.dtype)
     z[x_>lam] = (x_-lam)[x_ >lam]
     z[x_<-lam] =(x_+lam)[x_ <-lam]
-    return z*radius
+    return jnp.array(z*radius)
 
-def get_jvp(func,primal,tangent):
-  with fwAD.dual_level():
-    dual_input = fwAD.make_dual(primal, tangent)
-    dual_output = func(dual_input)
-    jvp = fwAD.unpack_dual(dual_output).tangent
-  return jvp
+# def get_jvp(func,primal,tangent):
+  # with fwAD.dual_level():
+  #   dual_input = fwAD.make_dual(primal, tangent)
+  #   dual_output = func(dual_input)
+  #   jvp = fwAD.unpack_dual(dual_output).tangent
+  # return jvp

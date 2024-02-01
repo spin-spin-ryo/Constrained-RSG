@@ -1,11 +1,9 @@
-import torch
+from jax import random
+import jax.numpy as jnp
+key = random.PRNGKey(0)
 DATAPATH = "./data"
 RESULTPATH = "./results"
-if torch.cuda.is_available():
-  DEVICE = "cuda"
-else:
-  DEVICE = "cpu"
-DTYPE = torch.float64
+DTYPE = jnp.float64
 
 # 目的関数一覧
 QUADRATIC = "Quadratic"

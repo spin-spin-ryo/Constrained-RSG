@@ -2,11 +2,10 @@ from problems.objectives import *
 from problems.constraints import *
 from environments import *
 import pickle
-import torch.nn.functional as F
-import torch.nn as nn
-from utils.calculate import generate_symmetric,generate_semidefinite,nonnegative_projection,L1projection,BallProjection,BoxProjection
+from utils.calculate import generate_symmetric,generate_semidefinite,nonnegative_projection,L1projection,BallProjection,BoxProjection,jax_randn
 from utils.select import get_activation,get_criterion
 import os
+from jax.lax import transpose
 
 objective_properties_key ={
     QUADRATIC:["dim","convex","data_name"],
@@ -81,21 +80,21 @@ def generate_initial_points(func,function_name,constraints_name,function_propert
     dim = func.get_dimension()
     # 非負制約の時のみすべて1
     if constraints_name == NONNEGATIVE:
-        x0 = torch.ones(dim)
+        x0 = jnp.ones(dim)
         return x0
     
     if function_name == MLPNET:
         if function_properties["data_name"] == "mnist":
             # dim:669706
-            x0 = torch.load(os.path.join(DATAPATH,"mnist","mlpnet","init_param.pth"))
+            x0 = jnp.load(os.path.join(DATAPATH,"mnist","mlpnet","init_param.npy"))
             return x0
     
     if function_name == CNN:
         if function_properties["data_name"] == "mnist":
             # dim:33738
-            x0 = torch.load(os.path.join(DATAPATH,"mnist","cnn","init_param.pth"))
+            x0 = jnp.load(os.path.join(DATAPATH,"mnist","cnn","init_param.npy"))
             return x0
-    x0 = torch.zeros(dim)
+    x0 = jnp.zeros(dim)
     return x0
 
 def generate_quadratic(properties):
@@ -107,34 +106,34 @@ def generate_quadratic(properties):
             # rankは適当
             rank = dim//2
             Quadratic_data_path = os.path.join(DATAPATH,"quadratic","convex")
-            filename_Q = f"Q_{dim}_{rank}.pth"
-            filename_b = f"b_{dim}_{rank}.pth"
+            filename_Q = f"Q_{dim}_{rank}.npy"
+            filename_b = f"b_{dim}_{rank}.npy"
             if os.path.exists(os.path.join(Quadratic_data_path,filename_Q)):
-                Q = torch.load(os.path.join(Quadratic_data_path,filename_Q))
-                b = torch.load(os.path.join(Quadratic_data_path,filename_b))
+                Q = jnp.load(os.path.join(Quadratic_data_path,filename_Q))
+                b = jnp.load(os.path.join(Quadratic_data_path,filename_b))
                 c = 0
             else:
-                Q = generate_semidefinite(dim=dim,rank=rank,device = DEVICE)
-                b = torch.randn(dim,device = DEVICE)
+                Q = generate_semidefinite(dim=dim,rank=rank)
+                b = jax_randn(dim)
                 c = 0
                 os.makedirs(Quadratic_data_path,exist_ok=True)
-                torch.save(Q,os.path.join(Quadratic_data_path,filename_Q))
-                torch.save(b,os.path.join(Quadratic_data_path,filename_b))
+                jnp.save(Q,os.path.join(Quadratic_data_path,filename_Q))
+                jnp.save(b,os.path.join(Quadratic_data_path,filename_b))
         else:   
             Quadratic_data_path = os.path.join(DATAPATH,"quadratic","nonconvex")
-            filename_Q = f"Q_{dim}.pth"
-            filename_b = f"b_{dim}.pth"
+            filename_Q = f"Q_{dim}.npy"
+            filename_b = f"b_{dim}.npy"
             if os.path.exists(os.path.join(Quadratic_data_path,filename_Q)):
-                Q = torch.load(os.path.join(Quadratic_data_path,filename_Q))
-                b = torch.load(os.path.join(Quadratic_data_path,filename_b))
+                Q = jnp.load(os.path.join(Quadratic_data_path,filename_Q))
+                b = jnp.load(os.path.join(Quadratic_data_path,filename_b))
                 c = 0
             else:
-                Q = generate_symmetric(dim=dim,device = DEVICE)
-                b = torch.randn(dim,device = DEVICE)
+                Q = generate_symmetric(dim=dim)
+                b = jax_randn(dim)
                 c = 0
                 os.makedirs(Quadratic_data_path,exist_ok=True)
-                torch.save(Q,os.path.join(Quadratic_data_path,filename_Q))
-                torch.save(b,os.path.join(Quadratic_data_path,filename_b))                    
+                jnp.save(Q,os.path.join(Quadratic_data_path,filename_Q))
+                jnp.save(b,os.path.join(Quadratic_data_path,filename_b))                    
     params = [Q,b,c]
     f = QuadraticFunction(params=params)
     return f
@@ -144,19 +143,19 @@ def generate_sparse_quadratic(properties):
     data_name = properties["data_name"]
     if data_name == "random":
         Quadratic_data_path = os.path.join(DATAPATH,"sparse_quadratic")
-        filename_Q = f"Q_{dim}.pth"
-        filename_b = f"b_{dim}.pth"
+        filename_Q = f"Q_{dim}.npy"
+        filename_b = f"b_{dim}.npy"
         if os.path.exists(os.path.join(Quadratic_data_path,filename_Q)):
-            Q = torch.load(os.path.join(Quadratic_data_path,filename_Q))
-            b = torch.load(os.path.join(Quadratic_data_path,filename_b))
+            Q = jnp.load(os.path.join(Quadratic_data_path,filename_Q))
+            b = jnp.load(os.path.join(Quadratic_data_path,filename_b))
             c = 0
         else:
-            Q = torch.randn(dim,device = DEVICE)
-            b = torch.randn(dim,device = DEVICE)
+            Q = jax_randn(dim)
+            b = jax_randn(dim)
             c = 0
             os.makedirs(Quadratic_data_path,exist_ok=True)
-            torch.save(Q,os.path.join(Quadratic_data_path,filename_Q))
-            torch.save(b,os.path.join(Quadratic_data_path,filename_b))    
+            jnp.save(Q,os.path.join(Quadratic_data_path,filename_Q))
+            jnp.save(b,os.path.join(Quadratic_data_path,filename_b))    
     params = [Q,b,c]
     f = SparseQuadraticFunction(params=params)
     return f
@@ -189,17 +188,17 @@ def generate_least_square(properties):
     dim = int(properties("dim"))
     if data_name == "random":
         data_path = os.path.join(DATAPATH,"least_square")
-        filename_A = f"A_{dim}_{data_size}.pth"
-        filename_b = f"b_{dim}_{data_size}.pth"
+        filename_A = f"A_{dim}_{data_size}.npy"
+        filename_b = f"b_{dim}_{data_size}.npy"
         if os.path.exists(os.path.join(data_path,filename_A)):
-            A = torch.load(os.path.join(data_path,filename_A))
-            b = torch.load(os.path.join(data_path,filename_b))
+            A = jnp.load(os.path.join(data_path,filename_A))
+            b = jnp.load(os.path.join(data_path,filename_b))
         else:
-            A = torch.randn(data_size,dim)
-            b = torch.randn(data_size)
+            A = jax_randn(data_size,dim)
+            b = jax_randn(data_size)
             os.makedirs(data_path,exist_ok=True)
-            torch.save(A,os.path.join(data_path,filename_A))
-            torch.save(b,os.path.join(data_path,filename_b))
+            jnp.save(A,os.path.join(data_path,filename_A))
+            jnp.save(b,os.path.join(data_path,filename_b))
     
     params = [A,b]
     f = LeastSquare(params)
@@ -215,8 +214,8 @@ def generate_mlpnet(properties):
     
     if data_name == "mnist":
         data_path = os.path.join(DATAPATH,"mnist","mlpnet")
-        data = torch.load(os.path.join(data_path,"mnist_data.pth"))
-        label = torch.load(os.path.join(data_path,"mnist_label.pth"))
+        data = jnp.load(os.path.join(data_path,"mnist_data.npy"))
+        label = jnp.load(os.path.join(data_path,"mnist_label.npy"))
     
     else:
         raise ValueError(f"{data_name} does not exist.")
@@ -234,11 +233,11 @@ def generate_cnn(properties):
 
     if data_name == "mnist":
         data_path = os.path.join(DATAPATH,"mnist","cnn")
-        data = torch.load(os.path.join(data_path,"images.pth"))
-        label = torch.load(os.path.join(data_path,"labels.pth"))
+        data = jnp.load(os.path.join(data_path,"images.npy"))
+        label = jnp.load(os.path.join(data_path,"labels.npy"))
         data_size = data.shape[2]
         print("data_size:",data_size)
-        class_num = (torch.unique(label)).shape[0]
+        class_num = (jnp.unique(label)).shape[0]
     
     params = [data,label,class_num,data_size,layers_size]
     f = CNNet(params,criterion=criterion,activation=activation)
@@ -250,14 +249,14 @@ def generate_polytope(properties):
     constraints_num = properties["constraints_num"]
     if data_name == "random":
         data_path = os.path.join(DATAPATH,"polytope")
-        filename_A = f"A_{dim}_{constraints_num}.pth"
-        b = torch.ones(constraints_num)
+        filename_A = f"A_{dim}_{constraints_num}.npy"
+        b = jnp.ones(constraints_num)
         if os.path.exists(os.path.join(data_path,filename_A)):
-            A = torch.load(os.path.join(data_path,filename_A))
+            A = jnp.load(os.path.join(data_path,filename_A))
         else:
-            A = torch.randn(constraints_num,dim)
+            A = jax_randn(constraints_num,dim)
             os.makedirs(data_path,exist_ok=True)
-            torch.save(A,os.path.join(data_path,filename_A))
+            jnp.save(A,os.path.join(data_path,filename_A))
     
     params = [A,b]
     con= Polytope(params)
@@ -275,20 +274,20 @@ def generate_quadratic_constraints(properties):
     if data_name == "random":
         rank = dim//2
         data_path = os.path.join(DATAPATH,"quadratic_constraints")
-        filename_Q = f"Q_{dim}_{rank}_{constraints_num}.pth"
-        filename_b = f"b_{dim}_{rank}_{constraints_num}.pth"
+        filename_Q = f"Q_{dim}_{rank}_{constraints_num}.npy"
+        filename_b = f"b_{dim}_{rank}_{constraints_num}.npy"
         if os.path.exists(os.path.join(data_path,filename_Q)):
-            Q = torch.load(os.path.join(data_path,filename_Q))
-            b = torch.load(os.path.join(data_path,filename_b))
-            c = -torch.ones(constraints_num)
+            Q = jnp.load(os.path.join(data_path,filename_Q))
+            b = jnp.load(os.path.join(data_path,filename_b))
+            c = -jnp.ones(constraints_num)
         else:
-            P = torch.randn(constraints_num,dim,dim)
-            Q = torch.matmul(P,P.transpose(1,2))/dim
-            b = torch.randn(constraints_num,dim)
-            c = -torch.ones(constraints_num)
+            P = jax_randn(constraints_num,dim,dim)
+            Q = P@transpose(P,(0,2,1))/dim
+            b = jax_randn(constraints_num,dim)
+            c = -jnp.ones(constraints_num)
             os.makedirs(data_path,exist_ok=True)
-            torch.save(Q,os.path.join(data_path,filename_Q))
-            torch.save(b,os.path.join(data_path,filename_b))
+            jnp.save(Q,os.path.join(data_path,filename_Q))
+            jnp.save(b,os.path.join(data_path,filename_b))
     params = [Q,b,c]
     con = Quadratic(params)
     return con

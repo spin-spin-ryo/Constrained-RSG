@@ -1,7 +1,9 @@
 #目的関数クラス
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
+import jaxlib
+import jax.numpy as jnp
+from jax import jit
+from functools import partial
+import utils.jax_layers as F
 
 class Objective:
   def __init__(self,params):
@@ -11,20 +13,16 @@ class Objective:
   def get_dimension(self):
     return
 
+  @partial(jit, static_argnums=0)
   def __call__(self,x):
     return
   
   def set_type(self,dtype):
     for i in range(len(self.params)):
-      if isinstance(self.params[i],torch.Tensor):
-        self.params[i] = self.params[i].to(dtype)
+      if isinstance(self.params[i],jaxlib.xla_extension.ArrayImpl):
+        self.params[i] = self.params[i].astype(dtype)
     return
   
-  def set_device(self,device):
-    for i in range(len(self.params)):
-      if isinstance(self.params[i],torch.Tensor):
-        self.params[i] = self.params[i].to(device)
-    return
   
 class QuadraticFunction(Objective):
   # params: [Q,b,c]
@@ -42,7 +40,7 @@ class SparseQuadraticFunction(Objective):
     Q = self.params[0]
     b = self.params[1]
     c = self.params[2]
-    return torch.sum(Q*x*x) + b@x +c 
+    return jnp.sum(Q*x*x) + b@x +c 
   
 class MatrixFactorization_1(Objective):
   # ||UV - X||_F
@@ -60,7 +58,7 @@ class MatrixFactorization_1(Objective):
     assert len(x)==self.rank*self.row + self.rank*self.column
     W = x[:self.rank*self.column].reshape(self.column,self.rank)
     V = x[self.rank*self.column:].reshape(self.rank,self.row)
-    return torch.linalg.norm(self.params[0]-W@V,ord = "fro")
+    return jnp.linalg.norm(self.params[0]-W@V,ord = "fro")
   
 class MatrixFactorization_2(Objective):
   # ||UV - X||_F^2
@@ -78,7 +76,7 @@ class MatrixFactorization_2(Objective):
     assert len(x)==self.rank*self.row + self.rank*self.column
     W = x[:self.rank*self.column].reshape(self.column,self.rank)
     V = x[self.rank*self.column:].reshape(self.rank,self.row)
-    return torch.linalg.norm(self.params[0]-W@V,ord = "fro")**2
+    return jnp.linalg.norm(self.params[0]-W@V,ord = "fro")**2
 
 class MatrixFactorization_Completion(Objective):
   # ||P_\Omega(UV) - P_{\Omega}(X)||_F
@@ -97,13 +95,13 @@ class MatrixFactorization_Completion(Objective):
     assert len(x)==self.rank*self.row + self.rank*self.column
     W = x[:self.rank*self.column].reshape(self.column,self.rank)
     V = x[self.rank*self.column:].reshape(self.rank,self.row)
-    return torch.linalg.norm((self.params[0]-W@V)[self.index])**2
+    return jnp.linalg.norm((self.params[0]-W@V)[self.index])**2
 
 class LeastSquare(Objective):
   # ||Ax-b||^2
   # params: [A,b]
   def __call__(self,x):
-    return torch.linalg.norm(self.params[1]-self.params[0]@x)**2
+    return jnp.linalg.norm(self.params[1]-self.params[0]@x)**2
   
   def get_dimension(self):
     return self.params[0].shape[1]
@@ -146,7 +144,7 @@ class MLPNet(Objective):
         X = self.activate(F.linear(X, W[i], bias=bias[i]))
       else:
         X = self.activate(F.linear(X, W[i]))
-    return self.criterion(X, self.params[1].to(torch.int64))
+    return self.criterion(X, self.params[1])
 
 class CNNet(Objective):
     # classification
@@ -202,21 +200,21 @@ class CNNet(Objective):
       used_variables_num += dim*class_num
       b = x[used_variables_num:]
       z = F.linear(z, W, bias=b)
-      return self.criterion(z, self.params[1].to(torch.int64))
+      return self.criterion(z, self.params[1])
 
-class Styblinsky(Objective):
-  def __call__(self,x):
-    return 1/2*torch.sum(x[:self.params[0]]**4 - 16*x[:self.params[0]]**2 + 5*x[:self.params[0]])
+# class Styblinsky(Objective):
+#   def __call__(self,x):
+#     return 1/2*jnp.sum(x[:self.params[0]]**4 - 16*x[:self.params[0]]**2 + 5*x[:self.params[0]])
 
-class Ackley(Objective):
-  def __call__(self, x):
-    return 20 - 20*torch.exp( -0.2 * torch.sqrt(torch.mean(x[:self.params[0]]**2))) + torch.exp(torch.tensor(1,dtype = x.dtype,device = x.device)) - torch.exp(torch.mean(torch.cos(2 * 3.141592653589793238 * x[:self.params[0]])))
+# class Ackley(Objective):
+#   def __call__(self, x):
+#     return 20 - 20*jnp.exp( -0.2 * jnp.sqrt(jnp.mean(x[:self.params[0]]**2))) + jnp.exp(torch.tensor(1,dtype = x.dtype,device = x.device)) - torch.exp(torch.mean(torch.cos(2 * 3.141592653589793238 * x[:self.params[0]])))
 
-class Rastrigin(Objective):
-  def __call__(self,x):
-    return 10*x.shape[0] + torch.sum(x**2) -10*torch.sum(torch.cos(2 * 3.141592653589793238 * x))
+# class Rastrigin(Objective):
+#   def __call__(self,x):
+#     return 10*x.shape[0] + torch.sum(x**2) -10*torch.sum(torch.cos(2 * 3.141592653589793238 * x))
   
-class Schwefel(Objective):
-  def __call__(self,x):
-    return - torch.sum(x*torch.sin(torch.sqrt(torch.abs(x))))
+# class Schwefel(Objective):
+#   def __call__(self,x):
+#     return - torch.sum(x*torch.sin(torch.sqrt(torch.abs(x))))
     

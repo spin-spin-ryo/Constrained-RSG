@@ -1,18 +1,15 @@
-import torch
-from torch.autograd.functional import hessian
-
-# Implemented by Pytorch
+import numpy as np
+import jax.numpy as jnp
+from jax import jacrev,jit
+from utils.calculate import hessian
+from functools import partial
+import jaxlib
+# Implemented by Jax
 
 class constraints:
     def __init__(self,params):
         self.params = params
     
-    def set_type(self,dtype):
-        # set tensor dtype in params
-        for i in range(len(self.params)):
-            if isinstance(self.params[i],torch.Tensor):
-                self.params[i] = self.params[i].to(dtype)
-        return
     
     def get_number_of_constraints(self):
         return
@@ -21,38 +18,25 @@ class constraints:
         # evaluate function values
         return
     
-    def set_device(self,device):
-        # set tensor device in params
+    def set_type(self,dtype):
         for i in range(len(self.params)):
-            if isinstance(self.params[i],torch.Tensor):
-                self.params[i] = self.params[i].to(device)
-        return
- 
+            if isinstance(self.params[i],jaxlib.xla_extension.ArrayImpl):
+                self.params[i] = self.params[i].astype(dtype)
+            return
+  
+    
     def is_feasible(self,x):
-        # check feasibility
-        # not recommended: time consuming
-        with torch.no_grad():
-            g_values = self(x)
-            return torch.all(g_values<=0)
+        g_values = self(x)
+        return np.all(g_values<=0)
 
     def grad(self,x):
-        # output: (constraints_num, dim)
-        y = x.detach().requires_grad_(True)
-        a = self(y)
-        output = torch.zeros(a.shape[0],x.shape[0]).to(x.dtype).to(x.device)
-        for i in range(a.shape[0]):
-            a[i].backward(retain_graph = True)
-            output[i] = y.grad
-            y.grad = None
-        return output
+        return jacrev(self)(x)
     
     def second_order_oracle(self,x,l):
-        # output: \sum_{i} l_i \nabla^2 g_i(x)
+        @jit
         def func(x):
-            values = self(x)
-            return values@l        
-        hess = hessian(func,x)
-        return hess
+            return jnp.dot(self(x),l)        
+        return hessian(func)(x)
  
 class Polytope(constraints):
     # Ax - b
@@ -60,6 +44,7 @@ class Polytope(constraints):
         # params: [A,b] 
         super().__init__(params)
     
+    @partial(jit, static_argnums=0)
     def __call__(self,x):
         return self.params[0]@x-self.params[1]
     
@@ -79,8 +64,9 @@ class NonNegative(constraints):
         super().__init__(params)
 
     def grad(self,x):
-        return -torch.eye(x.shape[0],dtype = x.dtype,device=x.device)
-
+        return -jnp.eye(x.shape[0],dtype = x.dtype)
+    
+    @partial(jit, static_argnums=0)
     def __call__(self,x):
         return -x
 
@@ -96,66 +82,48 @@ class Quadratic(constraints):
     def grad(self,x):
         return self.params[0]@x + self.params[1]
 
+    @partial(jit, static_argnums=0)
     def __call__(self,x):
         return 1/2*self.params[0]@x@x + self.params[1]@x + self.params[2]
     
     def second_order_oracle(self, x, l):
-        k = l.view(-1, 1, 1)
-        output = torch.sum(k * self.params[0], dim=0)
+        output = jnp.tensordot(l, self.params[0], axes=([0], [0]))
         return output
     
     def get_number_of_constraints(self):
         return self.params[0].shape[0]
       
 class Fused_Lasso(constraints):
+    @partial(jit,static_argnums = 0)
     def function(self,x):
-        return torch.sum(torch.abs(x))
-
-    def function2(self,x):
-        return torch.sum(torch.abs(x[1:]-x[0:-1]))
+        return jnp.sum(jnp.abs(x))
     
+    @partial(jit,static_argnums = 0)
+    def function2(self,x):
+        return jnp.sum(jnp.abs(x[1:]-x[0:-1]))
+    
+    @partial(jit,static_argnums = 0)
     def __call__(self, x):
-        with torch.no_grad():
-            return torch.Tensor([self.function(x)-self.params[0],self.function2(x)-self.params[1]]).to(x.device)
+        return jnp.array([self.function(x)-self.params[0],self.function2(x)-self.params[1]],dtype = x.dtype)
  
-    def grad(self,x):
-        y = x.detach()
-        y.requires_grad_(True)
-        self.function(y).backward()
-        g1 = y.grad
-        y.grad = None
-        self.function2(y).backward()
-        g2 = y.grad
-        y.grad = None
-        return torch.cat([g1.reshape(1,-1),g2.reshape(1,-1)],dim = 0).to(x.device)
-
     def get_number_of_constraints(self):
         return 2
     
 class Ball(constraints):
+    @partial(jit,static_argnums = 0)
     def __call__(self, x):
-        return ( torch.linalg.norm(x,ord = self.params[1])**self.params[1]-self.params[0]).reshape(1)
-    def grad(self,x):
-        y = x.detach().clone()
-        y.requires_grad_(True)
-        self(y).backward()
-        return y.grad.reshape(1,-1)
+        return ( jnp.linalg.norm(x,ord = self.params[1])**self.params[1]-self.params[0]).reshape(1)
     
     def get_number_of_constraints(self):
         return 1
     
 class Huber(constraints):
+    @partial(jit,static_argnums = 0)
     def __call__(self,x):
         index = x < self.params[0]
-        a = torch.sum(1/2*x[index]**2)
-        b = torch.sum( self.params[0]*(torch.abs(x[torch.logical_not(index)] - 0.5*self.params[1])))
+        a = jnp.sum(1/2*x[index]**2)
+        b = jnp.sum( self.params[0]*(jnp.abs(x[jnp.logical_not(index)] - 0.5*self.params[1])))
         return (a +b - self.params[1]).reshape(1)
-
-    def grad(self,x):
-        y = x.detach().clone()
-        y.requires_grad_(True)
-        self.Value(y).backward()
-        return y.grad.reshape(1,-1)
 
     def get_number_of_constraints(self):
         return 1

@@ -1,22 +1,18 @@
-import torch
-import torch.nn.functional as F
-import torch.nn as nn
-
+import jax.nn as nn
+from utils.jax_layers import cross_entropy_loss
 
 def get_activation(activation_name):
   if activation_name == "sigmoid":
-    activation = torch.sigmoid
+    activation = nn.sigmoid
   elif activation_name == "relu":
-    activation = F.relu
-  elif activation_name == "mish":
-    activation = F.mish
+    activation = nn.relu
   else:
     raise ValueError("No activation")
   return activation
 
 def get_criterion(criterion_name):
   if criterion_name == "CrossEntropy":
-    criterion = nn.CrossEntropyLoss()
+    criterion = cross_entropy_loss
   else:
     raise ValueError("No criterion")
   return criterion
