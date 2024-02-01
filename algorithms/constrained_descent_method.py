@@ -1,23 +1,23 @@
-import torch
 import time
 import numpy as np
 from algorithms.descent_method import optimization_solver,BacktrackingAcceleratedProximalGD
 from utils.calculate import nonnegative_projection
 from utils.logger import logger
+import jax.numpy as jnp
+from jax.lax import transpose
 
 BARRIERTYPE1 = "values"
 BARRIERTYPE2 = "grads" 
 
 class constrained_optimization_solver(optimization_solver):
-  def __init__(self,device = "cpu",dtype = torch.float64) -> None:
-    super().__init__(device,dtype)
+  def __init__(self,dtype = jnp.float64) -> None:
+    super().__init__(dtype)
     self.con = None
   
   def run(self, f, con, x0, iteration, params, save_path, log_interval=-1):
     self.__run_init__(f,con, x0, iteration)
     self.__check_params__(params)
     self.backward_mode = params["backward"]
-    torch.cuda.synchronize()
     start_time = time.time()
     for i in range(iteration):
       self.__clear__()
@@ -26,25 +26,22 @@ class constrained_optimization_solver(optimization_solver):
       else:
         logger.info("Stop Criterion")
         break
-      with torch.no_grad():
-        torch.cuda.synchronize()
-        T = time.time() - start_time
-        F = self.f(self.xk)
-        self.update_save_values(i+1,time = T,func_values = F)
-        if (i+1)%log_interval == 0 & log_interval != -1:
-          logger.info(f'{i+1}: {self.save_values["func_values"][i+1]}')
-          self.save_results(save_path)
+      T = time.time() - start_time
+      F = self.f(self.xk)
+      self.update_save_values(i+1,time = T,func_values = F)
+      if (i+1)%log_interval == 0 & log_interval != -1:
+        logger.info(f'{i+1}: {self.save_values["func_values"][i+1]}')
+        self.save_results(save_path)
     return
   
   def __run_init__(self, f,con, x0, iteration):
     self.f = f
     self.con = con
-    self.xk = x0.detach().clone()
-    self.save_values["func_values"] = torch.zeros(iteration+1)
-    self.save_values["time"] = torch.zeros(iteration+1)
+    self.xk = x0.copy()
+    self.save_values["func_values"] = np.zeros(iteration+1)
+    self.save_values["time"] = np.zeros(iteration+1)
     self.finish = False
-    with torch.no_grad():
-      self.save_values["func_values"][0] = self.f(self.xk)
+    self.save_values["func_values"][0] = self.f(self.xk)
 
 
   def evaluate_constraints_values(self,x):
@@ -54,8 +51,8 @@ class constrained_optimization_solver(optimization_solver):
     return self.con.grad(x)
   
 class GradientProjectionMethod(constrained_optimization_solver):
-  def __init__(self,device="cpu", dtype=torch.float64) -> None:
-    super().__init__(device, dtype)
+  def __init__(self,dtype=jnp.float64) -> None:
+    super().__init__(dtype)
     self.params_key = ["eps","delta","alpha","beta","backward"]
     self.lk = None
     # eps: active set
@@ -80,13 +77,13 @@ class GradientProjectionMethod(constrained_optimization_solver):
     Gk = self.get_activate_grads(eps) 
     grad = self.__first_order_oracle__(self.xk)
     d = self.__direction__(grad,Gk)
-    if torch.linalg.norm(d) < delta:
-      if torch.min(self.lk) >=0 :
+    if jnp.linalg.norm(d) < delta:
+      if jnp.min(self.lk) >=0 :
         self.finish = True
         return
       else: 
-        use_index = torch.ones(self.lk.shape[0],device = self.device,dtype = torch.bool)
-        index_minus_element = torch.argmin(self.lk)
+        use_index = np.ones(self.lk.shape[0],dtype = bool)
+        index_minus_element = jnp.argmin(self.lk)
         use_index[index_minus_element] = False
         Gk = Gk[use_index]
         d = self.__direction__(grad,Gk)
@@ -95,22 +92,21 @@ class GradientProjectionMethod(constrained_optimization_solver):
     self.__update__(alpha*d)
 
   def __step_size__(self, direction,alpha,beta):
-    with torch.no_grad():
-      while not self.con.is_feasible(self.xk + alpha*direction):
-        alpha *= beta
-      return alpha
+    while not self.con.is_feasible(self.xk + alpha*direction):
+      alpha *= beta
+    return alpha
 
   def __direction__(self,grad,Gk):
     if len(Gk) != 0:
-      GG = Gk@Gk.transpose(0,1)
-      self.lk = - torch.linalg.solve(GG,Gk@grad)
-      return -grad - Gk.transpose(0,1)@self.lk
+      GG = Gk@transpose(Gk,(1,0))
+      self.lk = - jnp.linalg.solve(GG,Gk@grad)
+      return -grad - transpose(Gk,(1,0))@self.lk
     else:
       return -grad
     
 class DynamicBarrierGD(constrained_optimization_solver):
-  def __init__(self,device="cpu", dtype=torch.float64) -> None:
-    super().__init__(device, dtype)
+  def __init__(self,dtype=jnp.float64) -> None:
+    super().__init__(dtype)
     self.lk = None
     self.params_key = [
       "lr",
@@ -127,27 +123,26 @@ class DynamicBarrierGD(constrained_optimization_solver):
     if type == BARRIERTYPE1:
       return alpha*constraints_values
     elif type == BARRIERTYPE2:
-      return beta*torch.linalg.norm(constraints_grads,din = 1)**2
+      return beta*jnp.linalg.norm(constraints_grads,axis = 1)**2
   
   def get_lambda(self,grad,constraints_grads,constraints_values,alpha,beta,type,sub_problem_eps = 1e-6,inner_iteration = 100000):
     if constraints_grads.shape[0] == 1:
       # 制約が一つの場合
-      l = (self.barrier_func(constraints_grads,constraints_values,alpha,beta,type) - grad@constraints_grads)/(torch.linalg.norm(constraints_grads)**2)
+      l = (self.barrier_func(constraints_grads,constraints_values,alpha,beta,type) - grad@constraints_grads)/(jnp.linalg.norm(constraints_grads)**2)
       if l >= 0:
         self.lk = l
       else:
-        self.lk = torch.zeros(1,dtype = self.dtype,device = self.device)
+        self.lk = jnp.zeros(1,dtype = self.dtype)
     else:
       barrier_func_values = self.barrier_func(constraints_grads,constraints_values,alpha,beta,type)
       def func(l):
-        return 1/2*(grad + constraints_grads.transpose(0,1)@l)@(grad + constraints_grads.transpose(0,1)@l) - l@barrier_func_values
+        return 1/2*(grad + transpose(constraints_grads,(1,0))@l)@(grad + transpose(constraints_grads,(1,0))@l) - l@barrier_func_values
       self.lk = self.solve_subproblem_by_APGD(func,nonnegative_projection,sub_problem_eps,inner_iteration)
 
 
 
   def solve_subproblem_by_APGD(self,func,prox,x0,sub_problem_eps,inner_iteration):
-    solver = BacktrackingAcceleratedProximalGD(device=self.device,
-                                               dtype = self.dtype)
+    solver = BacktrackingAcceleratedProximalGD(dtype = self.dtype)
     params = {"restart":True,
               "beta":0.8,
               "eps":sub_problem_eps}
@@ -174,11 +169,11 @@ class DynamicBarrierGD(constrained_optimization_solver):
     self.__update__(lr*d)
   
   def __direction__(self, grad,constraints_grads):
-    return - grad - constraints_grads.transpose(0,1)@self.lk
+    return - grad - transpose(constraints_grads,(1,0))@self.lk
 
 class PrimalDualInteriorPointMethod(constrained_optimization_solver):
-  def __init__(self, device="cpu", dtype=torch.float64) -> None:
-    super().__init__(device, dtype)
+  def __init__(self,dtype=jnp.float64) -> None:
+    super().__init__(dtype)
     self.lk = None
     self.params_key = [
       "mu",
@@ -197,7 +192,7 @@ class PrimalDualInteriorPointMethod(constrained_optimization_solver):
   
   def __run_init__(self, f, con, x0, iteration):
     m = con.get_number_of_constraints()
-    self.lk = torch.ones(m,dtype = self.dtype,device = self.device)
+    self.lk = jnp.ones(m,dtype = self.dtype,device = self.device)
     return super().__run_init__(f, con, x0, iteration)
   
   def __iter_per__(self, params):
@@ -224,15 +219,15 @@ class PrimalDualInteriorPointMethod(constrained_optimization_solver):
     self.lk += delta_l
 
   def get_r_dual(self,l,grad,constraints_grads):
-    return grad + constraints_grads.transpose(0,1)@l
+    return grad + transpose(constraints_grads,(1,0))@l
 
   def get_r_cent(self,l,t,constraints_values):
-    return - torch.diag(l)@constraints_values - 1/t
+    return - jnp.diag(l)@constraints_values - 1/t
 
   def get_r_t(self,l,t,grad,constraints_values,constraints_grads):
     r_dual = self.get_r_dual(l,grad,constraints_grads)
     r_cent = self.get_r_cent(l,t,constraints_values)
-    r = torch.cat([r_dual,r_cent])
+    r = jnp.concatenate([r_dual,r_cent])
     return r
   
   def __direction__(self, t,grad,H,constraints_values,constraints_grads,constraints_hessian_linear_combination):
@@ -240,13 +235,13 @@ class PrimalDualInteriorPointMethod(constrained_optimization_solver):
     r_cent = self.get_r_cent(self.lk,t,constraints_values)
     A11 = H + constraints_hessian_linear_combination
     A12 = constraints_grads.transpose(0,1)
-    A21 = -torch.diag(self.lk)@constraints_grads
-    A22 = -torch.diag(constraints_values)
-    A_1 = torch.cat([A11,A12],dim = 1)
-    A_2 = torch.cat([A21,A22],dim = 1)
-    A = torch.cat([A_1,A_2])
-    r = torch.cat([r_dual,r_cent])
-    delta_y = torch.linalg.solve(A,-r)
+    A21 = -jnp.diag(self.lk)@constraints_grads
+    A22 = -jnp.diag(constraints_values)
+    A_1 = jnp.concatenate([A11,A12],axis = 1)
+    A_2 = jnp.concatenate([A21,A22],axis = 1)
+    A = jnp.concatenate([A_1,A_2])
+    r = jnp.concatenate([r_dual,r_cent])
+    delta_y = jnp.linalg.solve(A,-r)
     delta_x = delta_y[:r_dual.shape[0]]
     delta_l = delta_y[r_dual.shape[0]:]
     return delta_x,delta_l,r,r_dual  
@@ -255,24 +250,24 @@ class PrimalDualInteriorPointMethod(constrained_optimization_solver):
     beta = params["beta"]
     alpha = params["alpha"]
 
-    if torch.all(delta_l>=0):
+    if jnp.all(delta_l>=0):
         s_max = 1
     else:
-        s_max = torch.min(torch.tensor([1, torch.min(-self.lk[delta_l<0]/delta_l[delta_l<0] )],device = self.device,dtype = self.dtype))
+        s_max = jnp.min(jnp.array([1, jnp.min(-self.lk[delta_l<0]/delta_l[delta_l<0] )],dtype = self.dtype))
     s = 0.99*s_max
     
     while True:
       x = self.xk + s*delta_x
       l = self.lk + s*delta_l
       constraints_values = self.evaluate_constraints_values(x)
-      if not torch.all(constraints_values <= 0):
+      if not jnp.all(constraints_values <= 0):
         s *= beta
         continue
       constraints_grads = self.evaluate_constraints_grads(x)
       grad = self.__first_order_oracle__(x)
       r_t_z = self.get_r_t(l,t,grad,constraints_values,constraints_grads)
 
-      if not torch.linalg.norm(r_t_z) <= (1 - alpha * s)*torch.linalg.norm(r_t):
+      if not jnp.linalg.norm(r_t_z) <= (1 - alpha * s)*jnp.linalg.norm(r_t):
         s *= beta     
       break    
     return s

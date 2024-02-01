@@ -50,12 +50,11 @@ def generate_symmetric(dim,device):
    key, _ = random.split(key)
    return (P + transpose(P,(1,0)))/2
 
-def jax_randn(*args):
+def jax_randn(*args,dtype = jnp.float32):
    global key
-   P = random.normal(key,args)
+   P = random.normal(key,args).astype(dtype)
    key, _ = random.split(key)
    return P
-
 
 def nonnegative_projection(x,t):
     y = np.zeros(x.size,dtype=x.dtype)

@@ -1,17 +1,18 @@
-import torch
 import time
 import numpy as np
-from torch.autograd.functional import hessian
-from utils.calculate import line_search,subspace_line_search,get_minimum_eigenvalue
+import jax.numpy as jnp
+from jax.lax import transpose
+from jax import grad,jit
+from utils.calculate import line_search,subspace_line_search,get_minimum_eigenvalue,hessian,jax_randn
 from utils.logger import logger
 import os
 from environments import FINITEDIFFERENCE,DIRECTIONALDERIVATIVE
 
 class optimization_solver:
-  def __init__(self,device = "cpu",dtype = torch.float64) -> None:
+  def __init__(self,dtype = jnp.float64) -> None:
     self.f = None 
+    self.f_grad = None
     self.xk = None
-    self.device = device
     self.dtype = dtype
     self.backward_mode = True
     self.finish = False
@@ -24,15 +25,11 @@ class optimization_solver:
 
   def __first_order_oracle__(self,x,output_loss = False):
     if self.backward_mode:
-      x.requires_grad_(True)
-      x.grad = None
-      loss = self.__zeroth_order_oracle__(x)  
-      loss.backward()
-      x.requires_grad_(False)
+      x_grad = self.f_grad(x)
       if output_loss:
-        return x.grad,loss.item()
+        return x_grad,self.f(x)
       else:
-        return x.grad
+        return x_grad
     
     elif isinstance(self.backward_mode,str):
       if self.backward_mode == DIRECTIONALDERIVATIVE:
@@ -44,20 +41,20 @@ class optimization_solver:
       
   
   def __second_order_oracle__(self,x):
-    H = hessian(self.f,x)
-    return H
+    return hessian(self.f)(x)
+    
    
   def __clear__(self):
-    self.xk.grad = None
-
+    return
+  
   def __run_init__(self,f,x0,iteration):
     self.f = f
-    self.xk = x0.detach().clone()
-    self.save_values["func_values"] = torch.zeros(iteration+1)
-    self.save_values["time"] = torch.zeros(iteration+1)
+    self.f_grad = grad(self.f)
+    self.xk = x0.copy()
+    self.save_values["func_values"] = np.zeros(iteration+1)
+    self.save_values["time"] = np.zeros(iteration+1)
     self.finish = False
-    with torch.no_grad():
-      self.save_values["func_values"][0] = self.f(self.xk)
+    self.save_values["func_values"][0] = self.f(self.xk)
 
   def __check_params__(self,params):
     all_params = True
@@ -71,13 +68,12 @@ class optimization_solver:
     assert all_params, "パラメータが一致しません"
   
   def check_norm(self,d,eps):
-    return torch.linalg.norm(d) <= eps
+    return jnp.linalg.norm(d) <= eps
   
   def run(self,f,x0,iteration,params,save_path,log_interval = -1):
     self.__run_init__(f,x0,iteration)
     self.__check_params__(params)
     self.backward_mode = params["backward"]
-    torch.cuda.synchronize()
     start_time = time.time()
     for i in range(iteration):
       self.__clear__()
@@ -86,14 +82,12 @@ class optimization_solver:
       else:
         logger.info("Stop Criterion")
         break
-      with torch.no_grad():
-        torch.cuda.synchronize()
-        T = time.time() - start_time
-        F = self.f(self.xk)
-        self.update_save_values(i+1,time = T,func_values = F)
-        if (i+1)%log_interval == 0 & log_interval != -1:
-          logger.info(f'{i+1}: {self.save_values["func_values"][i+1]}')
-          self.save_results(save_path)
+      T = time.time() - start_time
+      F = self.f(self.xk)
+      self.update_save_values(i+1,time = T,func_values = F)
+      if (i+1)%log_interval == 0 & log_interval != -1:
+        logger.info(f'{i+1}: {self.save_values["func_values"][i+1]}')
+        self.save_results(save_path)
     return
   
   def update_save_values(self,iter,**kwargs):
@@ -102,11 +96,10 @@ class optimization_solver:
   
   def save_results(self,save_path):
     for k,v in self.save_values.items():
-      torch.save(v.cpu(),os.path.join(save_path,k+".pth"))
+      jnp.save(v.cpu(),os.path.join(save_path,k+".npy"))
   
   def __update__(self,d):
-    with torch.no_grad():
-      self.xk += d
+    self.xk += d
 
   def __iter_per__(self,params):
     return
@@ -118,8 +111,8 @@ class optimization_solver:
     return
   
 class GradientDescent(optimization_solver):
-  def __init__(self, device="cpu", dtype=torch.float64) -> None:
-    super().__init__(device, dtype)
+  def __init__(self, dtype=jnp.float64) -> None:
+    super().__init__(dtype)
     self.params_key = ["lr",
                        "backward"]
   
@@ -137,8 +130,8 @@ class GradientDescent(optimization_solver):
     return params["lr"]
 
 class SubspaceGD(optimization_solver):
-  def __init__(self, device="cpu", dtype=torch.float64) -> None:
-    super().__init__(device, dtype)
+  def __init__(self, dtype=jnp.float64) -> None:
+    super().__init__(dtype)
     self.params_key = ["lr",
                        "reduced_dim",
                        "dim",
@@ -147,12 +140,11 @@ class SubspaceGD(optimization_solver):
         
   def subspace_first_order_oracle(self,x,Mk):
     reduced_dim = Mk.shape[0]
-    subspace_func = lambda d:self.f(x + Mk.transpose(0,1)@d)
+    subspace_func = lambda d:self.f(x + transpose(Mk,(1,0))@d)
+    subspace_func = jit(subspace_func)
     if self.backward_mode:
-      d = torch.zeros(reduced_dim,requires_grad=True,device=self.device,dtype=self.dtype)
-      loss_d = subspace_func(d)
-      loss_d.backward()
-      return d.grad
+      d = jnp.zeros(reduced_dim,dtype=self.dtype)
+      return grad(subspace_func)(d)
   
   def __iter_per__(self, params):
     reduced_dim = params["reduced_dim"]
@@ -170,22 +162,22 @@ class SubspaceGD(optimization_solver):
   def generate_matrix(self,dim,reduced_dim,mode):
     # (dim,reduced_dim)の行列を生成
     if mode == "random":
-      return torch.randn(reduced_dim,dim,device = self.device,dtype=self.dtype)/dim
+      return jax_randn(reduced_dim,dim,dtype=self.dtype)/dim
     elif mode == "identity":
       return None
     else:
       raise ValueError("No matrix mode")
 
 class AcceleratedGD(optimization_solver):
-  def __init__(self, device="cpu", dtype=torch.float64) -> None:
-    super().__init__(device, dtype)
+  def __init__(self,  dtype=jnp.float64) -> None:
+    super().__init__(dtype)
     self.lambda_k = 0
     self.yk = None
     self.params_key = ["lr",
                        "backward"]
   
   def __run_init__(self, f, x0, iteration):
-    self.yk = x0.detach().clone()
+    self.yk = x0.copy()
     return super().__run_init__(f, x0, iteration)
   
   def __iter_per__(self, params):
@@ -193,17 +185,14 @@ class AcceleratedGD(optimization_solver):
     lambda_k1 = (1 + (1 + 4*self.lambda_k**2)**(0.5))/2
     gamma_k = ( 1 - self.lambda_k)/lambda_k1
     grad = self.__first_order_oracle__(self.xk)
-    with torch.no_grad():
-      yk1 = self.xk - lr*grad
-      self.xk = (1 - gamma_k)*yk1 + gamma_k*self.yk
-      self.yk = yk1
-      self.lambda_k = lambda_k1
-    self.xk.requires_grad_(True)
-    self.xk.grad = grad
+    yk1 = self.xk - lr*grad
+    self.xk = (1 - gamma_k)*yk1 + gamma_k*self.yk
+    self.yk = yk1
+    self.lambda_k = lambda_k1
         
 class NewtonMethod(optimization_solver):
-  def __init__(self, device="cpu", dtype=torch.float64) -> None:
-    super().__init__(device, dtype)
+  def __init__(self,  dtype=jnp.float64) -> None:
+    super().__init__(dtype)
     self.params_key = [
       "alpha",
       "beta",
@@ -218,7 +207,7 @@ class NewtonMethod(optimization_solver):
     self.__update__(lr*dk)
         
   def __direction__(self, grad,hess):
-    return - torch.linalg.solve(hess,grad)
+    return - jnp.linalg.solve(hess,grad)
     
   def __step_size__(self, grad,dk,params):
     alpha = params["alpha"]
@@ -226,8 +215,8 @@ class NewtonMethod(optimization_solver):
     return line_search(self.xk,self.f,grad,dk,alpha,beta)
 
 class SubspaceNewton(SubspaceGD):
-  def __init__(self, device="cpu", dtype=torch.float64) -> None:
-    super().__init__(device, dtype)
+  def __init__(self, dtype=jnp.float64) -> None:
+    super().__init__(dtype)
     self.params_key =["dim",
                       "reduced_dim",
                       "mode",
@@ -235,10 +224,10 @@ class SubspaceNewton(SubspaceGD):
 
   def subspace_second_order_oracle(self,x,Mk):
     reduced_dim = Mk.shape[0]
-    d = torch.zeros(reduced_dim,dtype = self.dtype,device = self.device)
+    d = jnp.zeros(reduced_dim,dtype = self.dtype)
     sub_func = lambda d: self.f(x +Mk.transpose(0,1)@d)
-    H = hessian(sub_func,d)
-    return H
+    sub_func = jit(sub_func)
+    return hessian(sub_func)(d)
     
 
   def __iter_per__(self, params):
@@ -253,7 +242,7 @@ class SubspaceNewton(SubspaceGD):
     self.__update__(lr*Mk.transpose(0,1)@dk)
   
   def __direction__(self, grad,hess,Mk):
-    return - torch.linalg.solve(hess,grad)
+    return - jnp.linalg.solve(hess,grad)
     
   def __step_size__(self, grad,dk,Mk,params):
     alpha = params["alpha"]
@@ -263,15 +252,15 @@ class SubspaceNewton(SubspaceGD):
   def generate_matrix(self,dim,reduced_dim,mode):
     # (dim,reduced_dim)の行列を生成
     if mode == "random":
-      return torch.randn(reduced_dim,dim,device = self.device,dtype=self.dtype)/dim
+      return jax_randn(reduced_dim,dim,dtype=self.dtype)/dim
     elif mode == "identity":
       return None
     else:
       raise ValueError("No matrix mode")
 
 class LimitedMemoryNewton(optimization_solver):
-  def __init__(self, device="cpu", dtype=torch.float64) -> None:
-    super().__init__(device, dtype)
+  def __init__(self, dtype=jnp.float64) -> None:
+    super().__init__(dtype)
     self.Pk = None
     self.params_key = [
       "matrix_size",
@@ -283,31 +272,31 @@ class LimitedMemoryNewton(optimization_solver):
   
   def subspace_first_order_oracle(self,x,Mk):
     subspace_func = lambda d:self.f(x + Mk.transpose(0,1)@d)
+    subspace_func = jit(subspace_func)
     if self.backward_mode:
       matrix_size = Mk.shape[0]
-      d = torch.zeros(matrix_size,requires_grad=True,device=self.device,dtype=self.dtype)
-      loss_d = subspace_func(d)
-      loss_d.backward()
-      return d.grad
-  
+      d = jnp.zeros(matrix_size,dtype=self.dtype)
+      return grad(subspace_func)(d)
+    
   def generate_matrix(self,matrix_size,gk):
     # P^\top = [x_0,\nabla f(x_0),...,x_k,\nabla f(x_k)]
     if self.Pk is None:
-      self.Pk = torch.concat([self.xk.clone().detach().unsqueeze(0),gk.unsqueeze(0)],dim = 0)
+      self.Pk = jnp.concatenate([jnp.expand_dims(self.xk,0),jnp.expand_dims(gk,0)])
     else:
       if self.Pk.shape[0] < matrix_size:
-        self.Pk = torch.concat([self.Pk,self.xk.clone().detach().unsqueeze(0),gk.unsqueeze(0)],dim = 0)
+        self.Pk = jnp.concatenate([self.Pk,jnp.expand_dims(self.xk,0),jnp.expand_dims(gk,0)])
       else:
-        self.Pk = torch.concat([self.Pk[2:],self.xk.clone().detach().unsqueeze(0),gk.unsqueeze(0)],dim = 0)
+        self.Pk = jnp.concatenate([self.Pk[2:],jnp.expand_dims(self.xk,0),jnp.expand_dims(gk,0)])
 
   def subspace_second_order_oracle(self,x,Mk,threshold_eigenvalue):
     matrix_size = Mk.shape[0]
-    d = torch.zeros(matrix_size,dtype = self.dtype,device = self.device)
+    d = jnp.zeros(matrix_size,dtype = self.dtype)
     sub_loss = lambda d:self.f(x + Mk.transpose(0,1)@d)
-    H = hessian(sub_loss,d)
+    sub_loss = jit(sub_loss)
+    H = hessian(sub_loss)(d)
     sigma_m = get_minimum_eigenvalue(H)
     if sigma_m < threshold_eigenvalue:
-        return H + (threshold_eigenvalue - sigma_m)*torch.eye(matrix_size,device = self.device,dtype = self.dtype)
+        return H + (threshold_eigenvalue - sigma_m)*jnp.eye(matrix_size,dtype = self.dtype)
     else:
         return H                                                                                                                                                                                                                                                                                        
   
@@ -321,7 +310,7 @@ class LimitedMemoryNewton(optimization_solver):
     self.__update__(lr*self.Pk.transpose(0,1)@dk)
   
   def __direction__(self, grad,hess):
-    return - torch.linalg.solve(hess,grad)
+    return - jnp.linalg.solve(hess,grad)
   
   def __step_size__(self, grad,dk,Mk,params):
     alpha = params["alpha"]
@@ -330,8 +319,8 @@ class LimitedMemoryNewton(optimization_solver):
 
 # prox(x,t):
 class BacktrackingProximalGD(optimization_solver):
-  def __init__(self, device="cpu", dtype=torch.float64) -> None:
-    super().__init__(device, dtype)
+  def __init__(self, dtype=jnp.float64) -> None:
+    super().__init__(dtype)
     self.prox = None
     self.params_key = [
       "eps",
@@ -347,7 +336,6 @@ class BacktrackingProximalGD(optimization_solver):
     self.__run_init__(f,prox, x0,iteration)
     self.backward_mode = params["backward"]
     self.__check_params__(params)
-    torch.cuda.synchronize()
     start_time = time.time()
     for i in range(iteration):
       self.__clear__()
@@ -355,13 +343,11 @@ class BacktrackingProximalGD(optimization_solver):
         self.__iter_per__(params)
       else:
         break
-      with torch.no_grad():
-        torch.cuda.synchronize()
-        self.save_values["time"][i+1] = time.time() - start_time
-        self.save_values["func_values"][i+1] = self.f(self.xk)
-        if (i+1)%log_interval == 0 & log_interval != -1:
-          logger.info(f'{i+1}: {self.save_values["func_values"][i+1]}')
-          self.save_results(save_path)
+      self.save_values["time"][i+1] = time.time() - start_time
+      self.save_values["func_values"][i+1] = self.f(self.xk)
+      if (i+1)%log_interval == 0 & log_interval != -1:
+        logger.info(f'{i+1}: {self.save_values["func_values"][i+1]}')
+        self.save_results(save_path)
     return
   
 
@@ -383,17 +369,15 @@ class BacktrackingProximalGD(optimization_solver):
     beta = params["beta"]
     eps = params["eps"]
     grad,loss = self.__first_order_oracle__(self.xk,output_loss=True)
-    with torch.no_grad():
-      prox_x,t = self.backtracking_with_prox(self.xk,grad,beta,loss=loss)
-      if self.check_norm(self.xk - prox_x,t*eps):
-        self.finish = True
-      self.xk = prox_x.detach().clone()
-      self.xk.requires_grad = True     
+    prox_x,t = self.backtracking_with_prox(self.xk,grad,beta,loss=loss)
+    if self.check_norm(self.xk - prox_x,t*eps):
+      self.finish = True
+    self.xk = prox_x.copy()     
     return
 
 class BacktrackingAcceleratedProximalGD(BacktrackingProximalGD):
-  def __init__(self, device="cpu", dtype=torch.float64) -> None:
-    super().__init__(device, dtype)
+  def __init__(self, dtype=jnp.float64) -> None:
+    super().__init__(dtype)
     self.tk = 1
     self.vk = None
     self.k = 0
@@ -407,7 +391,7 @@ class BacktrackingAcceleratedProximalGD(BacktrackingProximalGD):
   
   def __run_init__(self,f, prox,x0,iteration):
     self.k = 0
-    self.xk1 = x0.detach().clone()
+    self.xk1 = x0.copy()
     return super().__run_init__(f,prox,x0,iteration)
 
   def __iter_per__(self, params):
@@ -422,19 +406,17 @@ class BacktrackingAcceleratedProximalGD(BacktrackingProximalGD):
     if self.check_norm(prox_x - self.vk,t*eps):
       self.finish = True
     self.xk1 = self.xk
-    self.xk = prox_x.detach().clone()
+    self.xk = prox_x.copy()
     self.v = None
     if restart:
       if self.f(self.xk) > self.f(self.xk1):
           self.k = 0
 
   def backtracking_with_prox(self, x,v, grad_v, beta, max_iter=10000, loss_v=None):
-    with torch.no_grad():
-      if loss_v is None:
-        with torch.no_grad():
-          loss_v = self.f(v)
-      prox_x = self.prox(v-self.tk*grad_v,self.tk)
-      while self.tk*self.f(prox_x) > self.tk*loss_v + self.tk*grad_v@(prox_x - v) + 1/2*((prox_x - v)@(prox_x - v)):
-          self.tk *= beta
-          prox_x = self.prox(v-self.tk*grad_v,self.tk)    
-      return prox_x,self.tk
+    if loss_v is None:
+      loss_v = self.f(v)
+    prox_x = self.prox(v-self.tk*grad_v,self.tk)
+    while self.tk*self.f(prox_x) > self.tk*loss_v + self.tk*grad_v@(prox_x - v) + 1/2*((prox_x - v)@(prox_x - v)):
+        self.tk *= beta
+        prox_x = self.prox(v-self.tk*grad_v,self.tk)    
+    return prox_x,self.tk
