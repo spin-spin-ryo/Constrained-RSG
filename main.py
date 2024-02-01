@@ -2,9 +2,9 @@ from environments import *
 from numerical_experiment import get_objects_from_config
 from utils.save_func import get_path_form_params,save_result_json,load_config,plot_results
 import os
-import torch
 import sys
 from utils.logger import logger
+import numpy as np
 PROXIMAL_METHODS = [PROXIMAL_GRADIENT_DESCENT,ACCELERATED_PROXIMAL_GRADIENT_DESCENT]
 
 
@@ -22,9 +22,8 @@ def run_numerical_experiment(config):
   use_prox = solver_name in PROXIMAL_METHODS
 
   solver,solver_params,f,function_properties,con,constraints_properties,x0, prox = get_objects_from_config(config)
-  f.set_device(DEVICE)
   f.set_type(DTYPE)
-  x0 = x0.to(DEVICE).to(DTYPE)
+  x0 = x0.astype(DTYPE)
   logger.info(f"dimensiton:{f.get_dimension()}")
   
   
@@ -38,7 +37,6 @@ def run_numerical_experiment(config):
                             constraints_name,con_dir,
                             solver_name,solver_dir)
     con.set_type(DTYPE)
-    con.set_device(DEVICE)
     if con.is_feasible(x0):
       logger.info("Initial point is feasible.")
     else:
@@ -82,11 +80,11 @@ def run_numerical_experiment(config):
               )
 
   nonzero_index = solver.save_values["func_values"] != 0
-  min_f_value = torch.min(solver.save_values["func_values"][nonzero_index]).item()
+  min_f_value = np.min(solver.save_values["func_values"][nonzero_index])
   execution_time = solver.save_values["time"][-1]
   values_dict = {
     "min_value":min_f_value,
-    "time":execution_time.item()
+    "time":execution_time
   }
   plot_results(save_path,solver.save_values)
 
