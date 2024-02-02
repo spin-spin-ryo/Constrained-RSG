@@ -1,7 +1,7 @@
 from jax import jacrev,jacfwd
 import jax.numpy as jnp
 from jax.lax import transpose
-from jax import random
+from jax import random,jvp
 from environments import key
 import numpy as np
 
@@ -99,9 +99,10 @@ def L1projection(x,radius = 1):
     z[x_<-lam] =(x_+lam)[x_ <-lam]
     return jnp.array(z*radius)
 
-# def get_jvp(func,primal,tangent):
-  # with fwAD.dual_level():
-  #   dual_input = fwAD.make_dual(primal, tangent)
-  #   dual_output = func(dual_input)
-  #   jvp = fwAD.unpack_dual(dual_output).tangent
-  # return jvp
+def get_jvp(func,x,M):
+  reduced_dim = M.shape[0]
+  d = np.zeros(reduced_dim,dtype = x.dtype)
+  for i in range(reduced_dim):
+    _,directional_derivative= jvp(func,(x,),(M[i],))
+    d[i] = directional_derivative
+  return jnp.array(d)

@@ -30,15 +30,12 @@ class RSGLC(constrained_optimization_solver):
   
   def subspace_first_order_oracle(self,x,Mk):
     reduced_dim = Mk.shape[0]
-    subspace_func = lambda d:self.f(x + Mk.T@d)
-    subspace_func = jit(subspace_func)
     if isinstance(self.backward_mode,str):
       if self.backward_mode == DIRECTIONALDERIVATIVE:
-        v = jnp.zeros(reduced_dim,dtype = self.dtype)
-        for i in range(reduced_dim):
-          v[i] = get_jvp(self.f,x,Mk[i])
-        return v
+        return get_jvp(self.f,x,Mk)
     elif self.backward_mode:
+      subspace_func = lambda d:self.f(x + Mk.T@d)
+      subspace_func = jit(subspace_func)
       d = jnp.zeros(reduced_dim,dtype=self.dtype)
       return grad(subspace_func)(d)
      
