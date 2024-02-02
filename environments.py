@@ -1,5 +1,7 @@
 from jax import random
 import jax.numpy as jnp
+from jax import config
+config.update("jax_enable_x64", True)
 key = random.PRNGKey(0)
 DATAPATH = "./data"
 RESULTPATH = "./results"

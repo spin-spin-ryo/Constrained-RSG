@@ -164,8 +164,7 @@ def generate_matrix_factorization(properties):
     data_name = properties["data_name"]
     rank = int(properties["rank"])
     if data_name == "movie":
-        with open(os.path.join(DATAPATH,"movie","movie_100k.pth"),"rb") as data:
-            U = pickle.load(data)
+        U = jnp.load(os.path.join(DATAPATH,"movie","movie_train_100k.npy"))
     
     params = [U,rank]
     f = MatrixFactorization_2(params=params)
@@ -175,8 +174,7 @@ def generate_matrix_factorization_completion(properties):
     data_name = properties["data_name"]
     rank = int(properties["rank"])
     if data_name == "movie":
-        with open(os.path.join(DATAPATH,"movie","movie_train_100k.pth"),"rb") as data:
-            U = pickle.load(data)
+        U = jnp.load(os.path.join(DATAPATH,"movie","movie_train_100k.npy"))
     
     params = [U,rank]
     f = MatrixFactorization_Completion(params=params)
@@ -232,6 +230,7 @@ def generate_cnn(properties):
     criterion = get_criterion(criterion_name)
 
     if data_name == "mnist":
+        data_num = 10000
         data_path = os.path.join(DATAPATH,"mnist","cnn")
         data = jnp.load(os.path.join(data_path,"images.npy"))
         label = jnp.load(os.path.join(data_path,"labels.npy"))
@@ -239,7 +238,7 @@ def generate_cnn(properties):
         print("data_size:",data_size)
         class_num = (jnp.unique(label)).shape[0]
     
-    params = [data,label,class_num,data_size,layers_size]
+    params = [data[:data_num],label[:data_num],class_num,data_size,layers_size]
     f = CNNet(params,criterion=criterion,activation=activation)
     return f
 

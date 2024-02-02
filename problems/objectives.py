@@ -191,14 +191,14 @@ class CNNet(Objective):
         z = self.activate(z)
         # (data_num,input_channnels,height,width) -> (data_num,input_channnels,height//2,width//2)
         z = F.avg_pool2d(input = z , kernel_size= 2)
-    
-      z = z.view(z.size(0), -1)
+      z = z.reshape(z.shape[0], -1)
       dim = z.shape[1]
       class_num = self.params[2]
       
       W = x[used_variables_num:used_variables_num+dim*class_num].reshape(class_num,dim)
       used_variables_num += dim*class_num
       b = x[used_variables_num:]
+      # print(z.shape,W.shape,b.shape)
       z = F.linear(z, W, bias=b)
       return self.criterion(z, self.params[1])
 

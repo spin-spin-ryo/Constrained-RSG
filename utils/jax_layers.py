@@ -6,11 +6,12 @@ from jax import jit,vmap
 from operator import getitem
 
 def linear(input,weight,bias = None):
+  # input: (data_size, input_size)
   # weight:(output_size,input_size)
   if bias is None:
-    return jnp.dot(weight,input)
+    return jnp.dot(input,weight.T)
   else:
-    return jnp.dot(weight,input) + bias
+    return jnp.dot(input,weight.T) + bias
 
 def conv2d(input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1):
   if bias is None:
@@ -28,6 +29,6 @@ def avg_pool2d(input, kernel_size , stride=None, padding=0):
 @jit
 def cross_entropy_loss(logits, labels):
     logits = nn.log_softmax(logits)
-    loss = vmap(getitem)(logits, labels)
+    loss = vmap(getitem)(logits, labels.astype(jnp.int64))
     loss = -loss.mean()
     return loss

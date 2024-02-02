@@ -4,7 +4,7 @@ from environments import *
 save_path = "config_template.json"
 
 # 以下設定
-objective_name = MLPNET
+objective_name = CNN
 constraints_name = BALL
 solver_name = RSG_NC
 
@@ -18,17 +18,17 @@ threshold1 = 12000
 threshold2 = 146000
 activation = "relu"
 criterion = "CrossEntropy"
+
 layers_size = [
-  (28*28,512,1),
-  (512,512,1),
-  (512,10,1)
+  (1,16,5,1),
+  (16,32,5,1)
 ]
-ord = 1
-threshold = 12000
+ord = 2
+threshold = 50
 
 # アルゴリズム関連のパラメータ
 backward_mode = True
-iteration = 10000
+iteration = 1
 log_interval = 1000
 eps0 = 1e-4
 delta1 = 1e-10

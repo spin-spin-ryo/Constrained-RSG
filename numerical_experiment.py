@@ -1,6 +1,6 @@
 from algorithms.solver import get_solver
 from problems.generate_problem import generate_objective,generate_constraints,generate_initial_points,objective_properties_key,constraints_properties_key
-from environments import NOCONSTRAINTS,DEVICE,DTYPE,PROXIMAL_GRADIENT_DESCENT,ACCELERATED_PROXIMAL_GRADIENT_DESCENT
+from environments import NOCONSTRAINTS,DTYPE,PROXIMAL_GRADIENT_DESCENT,ACCELERATED_PROXIMAL_GRADIENT_DESCENT
 
 def get_objects_from_config(config):
     algorithms_config = config["algorithms"]
@@ -20,7 +20,7 @@ def get_objects_from_config(config):
     # solverを取得
     solver_name = algorithms_config["solver_name"]
     backward_mode = algorithms_config["backward"]
-    solver = get_solver(solver_name=solver_name,device=DEVICE,dtype=DTYPE)
+    solver = get_solver(solver_name=solver_name,dtype=DTYPE)
     solver_params = {}
     for param in solver.params_key:
       solver_params[param] = algorithms_config[param]
