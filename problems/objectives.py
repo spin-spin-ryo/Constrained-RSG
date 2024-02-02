@@ -171,25 +171,21 @@ class CNNet(Objective):
 
     def __call__(self,x):
       used_variables_num = 0
-      filters = []
-      bias = []
+      z = self.params[0]
       for input_channels,output_channels,kernel_size,bias_flag in self.params[4]:
-        filter = x[used_variables_num:used_variables_num + input_channels*output_channels*kernel_size*kernel_size].reshape(output_channels,input_channels,kernel_size,kernel_size)
-        filters.append(filter)
-        used_variables_num += input_channels*output_channels*kernel_size*kernel_size
+        # (data_num,input_channnels,height,width) -> (data_num,output_channels,height + 2*padding + 1 - kernel_size, width + 2*padding + 1 - kernel_size,width)
         if bias_flag == 1:
-          bias.append(x[used_variables_num:used_variables_num+output_channels])
+          z = F.conv2d(input = z,
+                       weight = x[used_variables_num:used_variables_num + input_channels*output_channels*kernel_size*kernel_size].reshape(output_channels,input_channels,kernel_size,kernel_size),
+                      bias = x[used_variables_num + input_channels*output_channels*kernel_size*kernel_size:used_variables_num + input_channels*output_channels*kernel_size*kernel_size + output_channels],
+                      padding = 2)
+          used_variables_num += input_channels*output_channels*kernel_size*kernel_size
           used_variables_num += output_channels
         else:
-          bias.append(None)
-
-      z = self.params[0]
-      for i in range(len(self.params[4])):
-        # (data_num,input_channnels,height,width) -> (data_num,output_channels,height + 2*padding + 1 - kernel_size, width + 2*padding + 1 - kernel_size,width)
-        if bias[i] is not None:
-          z = F.conv2d(input = z,weight = filters[i], bias = bias[i],padding = 2)
-        else:
-          z = F.conv2d(input = z,weight = filters[i], padding = 2)
+          z = F.conv2d(input = z,
+                       weight = x[used_variables_num:used_variables_num + input_channels*output_channels*kernel_size*kernel_size].reshape(output_channels,input_channels,kernel_size,kernel_size),
+                       padding = 2)
+          used_variables_num += input_channels*output_channels*kernel_size*kernel_size
         z = self.activate(z)
         # (data_num,input_channnels,height,width) -> (data_num,input_channnels,height//2,width//2)
         z = F.avg_pool2d(input = z , kernel_size= 2)

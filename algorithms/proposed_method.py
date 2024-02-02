@@ -37,6 +37,11 @@ class RSGLC(constrained_optimization_solver):
         for i in range(reduced_dim):
           v[i] = get_jvp(self.f,x,Mk[i])
         return v
+      elif self.backward_mode == FINITEDIFFERENCE:
+        h = 1e-8
+        with torch.no_grad():
+          z = self.f(x)
+          return torch.tensor([(self.f(x + h*Mk[i]) - z)/h for i in range(reduced_dim)],device = self.device, dtype = self.dtype)
     elif self.backward_mode:
       d = torch.zeros(reduced_dim,requires_grad=True,device=self.device,dtype=self.dtype)
       loss_d = subspace_func(d)
@@ -82,6 +87,8 @@ class RSGLC(constrained_optimization_solver):
     with torch.no_grad():
       while not self.con.is_feasible(self.xk + alpha*direction):
         alpha *= beta
+        if alpha < 1e-10:
+          return 0
       return alpha
   
   def __direction__(self,projected_grad,active_constraints_projected_grads,delta1,eps2,dim,reduced_dim):
