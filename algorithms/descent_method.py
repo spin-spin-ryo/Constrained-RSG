@@ -96,7 +96,7 @@ class optimization_solver:
   
   def save_results(self,save_path):
     for k,v in self.save_values.items():
-      jnp.save(v.cpu(),os.path.join(save_path,k+".npy"))
+      jnp.save(os.path.join(save_path,k+".npy"),v)
   
   def __update__(self,d):
     self.xk += d
@@ -141,7 +141,6 @@ class SubspaceGD(optimization_solver):
   def subspace_first_order_oracle(self,x,Mk):
     reduced_dim = Mk.shape[0]
     subspace_func = lambda d:self.f(x + transpose(Mk,(1,0))@d)
-    subspace_func = jit(subspace_func)
     if self.backward_mode:
       d = jnp.zeros(reduced_dim,dtype=self.dtype)
       return grad(subspace_func)(d)
@@ -226,7 +225,6 @@ class SubspaceNewton(SubspaceGD):
     reduced_dim = Mk.shape[0]
     d = jnp.zeros(reduced_dim,dtype = self.dtype)
     sub_func = lambda d: self.f(x +Mk.transpose(0,1)@d)
-    sub_func = jit(sub_func)
     return hessian(sub_func)(d)
     
 
@@ -272,7 +270,6 @@ class LimitedMemoryNewton(optimization_solver):
   
   def subspace_first_order_oracle(self,x,Mk):
     subspace_func = lambda d:self.f(x + Mk.transpose(0,1)@d)
-    subspace_func = jit(subspace_func)
     if self.backward_mode:
       matrix_size = Mk.shape[0]
       d = jnp.zeros(matrix_size,dtype=self.dtype)
@@ -292,7 +289,6 @@ class LimitedMemoryNewton(optimization_solver):
     matrix_size = Mk.shape[0]
     d = jnp.zeros(matrix_size,dtype = self.dtype)
     sub_loss = lambda d:self.f(x + Mk.transpose(0,1)@d)
-    sub_loss = jit(sub_loss)
     H = hessian(sub_loss)(d)
     sigma_m = get_minimum_eigenvalue(H)
     if sigma_m < threshold_eigenvalue:

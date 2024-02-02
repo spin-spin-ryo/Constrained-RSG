@@ -35,7 +35,6 @@ class RSGLC(constrained_optimization_solver):
         return get_jvp(self.f,x,Mk)
     elif self.backward_mode:
       subspace_func = lambda d:self.f(x + Mk.T@d)
-      subspace_func = jit(subspace_func)
       d = jnp.zeros(reduced_dim,dtype=self.dtype)
       return grad(subspace_func)(d)
      

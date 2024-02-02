@@ -26,6 +26,7 @@ class Objective:
   
 class QuadraticFunction(Objective):
   # params: [Q,b,c]
+  @partial(jit, static_argnums=0)
   def __call__(self,x):
     Q = self.params[0]
     b = self.params[1]
@@ -36,6 +37,7 @@ class QuadraticFunction(Objective):
     return self.params[0].shape[0]
 
 class SparseQuadraticFunction(Objective):
+  @partial(jit, static_argnums=0)
   def __call__(self,x):
     Q = self.params[0]
     b = self.params[1]
@@ -45,6 +47,7 @@ class SparseQuadraticFunction(Objective):
 class MatrixFactorization_1(Objective):
   # ||UV - X||_F
   # params: [X, rank]
+  
   def __init__(self, params):
     super().__init__(params)
     self.row = params[0].shape[1]
@@ -54,6 +57,7 @@ class MatrixFactorization_1(Objective):
   def get_dimension(self):
     return self.rank*self.row + self.rank*self.column
 
+  @partial(jit, static_argnums=0)
   def __call__(self,x):
     assert len(x)==self.rank*self.row + self.rank*self.column
     W = x[:self.rank*self.column].reshape(self.column,self.rank)
@@ -71,7 +75,7 @@ class MatrixFactorization_2(Objective):
   
   def get_dimension(self):
     return self.rank*self.row + self.rank*self.column
-
+  @partial(jit, static_argnums=0)
   def __call__(self,x):
     assert len(x)==self.rank*self.row + self.rank*self.column
     W = x[:self.rank*self.column].reshape(self.column,self.rank)
@@ -90,7 +94,7 @@ class MatrixFactorization_Completion(Objective):
   def get_dimension(self):
     return self.rank*self.row + self.rank*self.column
 
-  
+  @partial(jit, static_argnums=0)
   def __call__(self,x):
     assert len(x)==self.rank*self.row + self.rank*self.column
     W = x[:self.rank*self.column].reshape(self.column,self.rank)
@@ -100,6 +104,7 @@ class MatrixFactorization_Completion(Objective):
 class LeastSquare(Objective):
   # ||Ax-b||^2
   # params: [A,b]
+  @partial(jit, static_argnums=0)
   def __call__(self,x):
     return jnp.linalg.norm(self.params[1]-self.params[0]@x)**2
   
@@ -123,6 +128,7 @@ class MLPNet(Objective):
         used_variables_num += output_size
     return used_variables_num
 
+  @partial(jit, static_argnums=0)
   def __call__(self,x):
     W = []
     bias = []
@@ -167,6 +173,7 @@ class CNNet(Objective):
       used_variables_num += data_size*data_size*output_channels*class_num + class_num
       return used_variables_num
 
+    @partial(jit, static_argnums=0)
     def __call__(self,x):
       used_variables_num = 0
       filters = []

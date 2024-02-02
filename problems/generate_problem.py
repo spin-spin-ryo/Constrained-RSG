@@ -117,8 +117,8 @@ def generate_quadratic(properties):
                 b = jax_randn(dim)
                 c = 0
                 os.makedirs(Quadratic_data_path,exist_ok=True)
-                jnp.save(Q,os.path.join(Quadratic_data_path,filename_Q))
-                jnp.save(b,os.path.join(Quadratic_data_path,filename_b))
+                jnp.save(os.path.join(Quadratic_data_path,filename_Q),Q)
+                jnp.save(os.path.join(Quadratic_data_path,filename_b),b)
         else:   
             Quadratic_data_path = os.path.join(DATAPATH,"quadratic","nonconvex")
             filename_Q = f"Q_{dim}.npy"
@@ -132,8 +132,8 @@ def generate_quadratic(properties):
                 b = jax_randn(dim)
                 c = 0
                 os.makedirs(Quadratic_data_path,exist_ok=True)
-                jnp.save(Q,os.path.join(Quadratic_data_path,filename_Q))
-                jnp.save(b,os.path.join(Quadratic_data_path,filename_b))                    
+                jnp.save(os.path.join(Quadratic_data_path,filename_Q),Q)
+                jnp.save(os.path.join(Quadratic_data_path,filename_b),b)                    
     params = [Q,b,c]
     f = QuadraticFunction(params=params)
     return f
@@ -154,8 +154,8 @@ def generate_sparse_quadratic(properties):
             b = jax_randn(dim)
             c = 0
             os.makedirs(Quadratic_data_path,exist_ok=True)
-            jnp.save(Q,os.path.join(Quadratic_data_path,filename_Q))
-            jnp.save(b,os.path.join(Quadratic_data_path,filename_b))    
+            jnp.save(os.path.join(Quadratic_data_path,filename_Q),Q)
+            jnp.save(os.path.join(Quadratic_data_path,filename_b),b)    
     params = [Q,b,c]
     f = SparseQuadraticFunction(params=params)
     return f
@@ -195,8 +195,8 @@ def generate_least_square(properties):
             A = jax_randn(data_size,dim)
             b = jax_randn(data_size)
             os.makedirs(data_path,exist_ok=True)
-            jnp.save(A,os.path.join(data_path,filename_A))
-            jnp.save(b,os.path.join(data_path,filename_b))
+            jnp.save(os.path.join(data_path,filename_A),A)
+            jnp.save(os.path.join(data_path,filename_b),b)
     
     params = [A,b]
     f = LeastSquare(params)
@@ -230,7 +230,7 @@ def generate_cnn(properties):
     criterion = get_criterion(criterion_name)
 
     if data_name == "mnist":
-        data_num = 10000
+        data_num = 30000
         data_path = os.path.join(DATAPATH,"mnist","cnn")
         data = jnp.load(os.path.join(data_path,"images.npy"))
         label = jnp.load(os.path.join(data_path,"labels.npy"))
@@ -255,7 +255,7 @@ def generate_polytope(properties):
         else:
             A = jax_randn(constraints_num,dim)
             os.makedirs(data_path,exist_ok=True)
-            jnp.save(A,os.path.join(data_path,filename_A))
+            jnp.save(os.path.join(data_path,filename_A),A)
     
     params = [A,b]
     con= Polytope(params)
@@ -285,8 +285,8 @@ def generate_quadratic_constraints(properties):
             b = jax_randn(constraints_num,dim)
             c = -jnp.ones(constraints_num)
             os.makedirs(data_path,exist_ok=True)
-            jnp.save(Q,os.path.join(data_path,filename_Q))
-            jnp.save(b,os.path.join(data_path,filename_b))
+            jnp.save(os.path.join(data_path,filename_Q),Q)
+            jnp.save(os.path.join(data_path,filename_b),b)
     params = [Q,b,c]
     con = Quadratic(params)
     return con
