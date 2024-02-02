@@ -76,6 +76,8 @@ class RSGLC(constrained_optimization_solver):
   def __step_size__(self,direction,alpha,beta):
     while not self.con.is_feasible(self.xk + alpha*direction):
       alpha *= beta
+      if alpha < 1e-30:
+        return 0
     return alpha
   
   def __direction__(self,projected_grad,active_constraints_projected_grads,delta1,eps2,dim,reduced_dim):
