@@ -166,4 +166,3 @@ sh_files/
 scheduler_run.py
 scheduler_cancel.py
 outputs/
-test.py
