@@ -100,9 +100,21 @@ def L1projection(x,radius = 1):
     return jnp.array(z*radius)
 
 def get_jvp(func,x,M):
-  reduced_dim = M.shape[0]
-  d = np.zeros(reduced_dim,dtype = x.dtype)
-  for i in range(reduced_dim):
-    _,directional_derivative= jvp(func,(x,),(M[i],))
-    d[i] = directional_derivative
-  return jnp.array(d)
+  if M is not None:
+    reduced_dim = M.shape[0]
+    d = np.zeros(reduced_dim,dtype = x.dtype)
+    for i in range(reduced_dim):
+      _,directional_derivative= jvp(func,(x,),(M[i],))
+      d[i] = directional_derivative
+    return jnp.array(d)
+  else:
+    dim = x.shape[0]
+    e = np.zeros(dim,dtype=x.dtype)
+    e[0] = 1
+    e = jnp.array(e)
+    d = np.zeros(dim,dtype = x.dtype)
+    for i in range(dim):
+      _,directional_derivative= jvp(func,(x,),(e,))
+      d[i] = directional_derivative
+      e = jnp.roll(e,1)
+    return jnp.array(d)

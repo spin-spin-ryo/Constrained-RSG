@@ -24,7 +24,21 @@ class optimization_solver:
     return self.f(x)
 
   def __first_order_oracle__(self,x,output_loss = False):
-    if self.backward_mode:
+    if isinstance(self.backward_mode,str):
+      if self.backward_mode == DIRECTIONALDERIVATIVE:
+        return get_jvp(self.f,x,None)
+      elif self.backward_mode == FINITEDIFFERENCE:
+        dim = x.shape[0]
+        d = np.zeros(dim,dtype=self.dtype)
+        h = 1e-8
+        e = np.zeros(dim,dtype=x.dtype)
+        e[0] = 1
+        e = jnp.array(e)
+        z = self.f(x)
+        for i in range(dim):
+          d[i] = (self.f(x + h*e) - z)/h
+        return jnp.array(d)
+    elif self.backward_mode:
       x_grad = self.f_grad(x)
       if output_loss:
         return x_grad,self.f(x)
@@ -48,6 +62,13 @@ class optimization_solver:
     if isinstance(self.backward_mode,str):
       if self.backward_mode == DIRECTIONALDERIVATIVE:
         return get_jvp(self.f,x,Mk)
+      elif self.backward_mode == FINITEDIFFERENCE:
+        d = np.zeros(reduced_dim,dtype=self.dtype)
+        h = 1e-8
+        z = self.f(x)
+        for i in range(reduced_dim):
+          d[i] = (self.f(x + h*Mk[i]) - z)/h
+        return jnp.array(d)
     elif self.backward_mode:
       subspace_func = lambda d:self.f(x + Mk.T@d)
       d = jnp.zeros(reduced_dim,dtype=self.dtype)
