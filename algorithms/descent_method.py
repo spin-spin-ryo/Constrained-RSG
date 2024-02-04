@@ -3,7 +3,7 @@ import numpy as np
 import jax.numpy as jnp
 from jax.lax import transpose
 from jax import grad,jit
-from utils.calculate import line_search,subspace_line_search,get_minimum_eigenvalue,hessian,jax_randn
+from utils.calculate import line_search,subspace_line_search,get_minimum_eigenvalue,hessian,jax_randn,get_jvp
 from utils.logger import logger
 import os
 from environments import FINITEDIFFERENCE,DIRECTIONALDERIVATIVE
@@ -42,7 +42,24 @@ class optimization_solver:
   
   def __second_order_oracle__(self,x):
     return hessian(self.f)(x)
-    
+  
+  def subspace_first_order_oracle(self,x,Mk):
+    reduced_dim = Mk.shape[0]
+    if isinstance(self.backward_mode,str):
+      if self.backward_mode == DIRECTIONALDERIVATIVE:
+        return get_jvp(self.f,x,Mk)
+    elif self.backward_mode:
+      subspace_func = lambda d:self.f(x + Mk.T@d)
+      d = jnp.zeros(reduced_dim,dtype=self.dtype)
+      return grad(subspace_func)(d)
+  
+  def subspace_second_order_oracle(self,x,Mk):
+    reduced_dim = Mk.shape[0]
+    d = jnp.zeros(reduced_dim,dtype = self.dtype)
+    sub_func = lambda d: self.f(x +Mk.transpose(0,1)@d)
+    return hessian(sub_func)(d)
+  
+     
    
   def __clear__(self):
     return
@@ -138,13 +155,6 @@ class SubspaceGD(optimization_solver):
                        "mode",
                        "backward"]
         
-  def subspace_first_order_oracle(self,x,Mk):
-    reduced_dim = Mk.shape[0]
-    subspace_func = lambda d:self.f(x + transpose(Mk,(1,0))@d)
-    if self.backward_mode:
-      d = jnp.zeros(reduced_dim,dtype=self.dtype)
-      return grad(subspace_func)(d)
-  
   def __iter_per__(self, params):
     reduced_dim = params["reduced_dim"]
     dim = params["dim"]
@@ -220,14 +230,7 @@ class SubspaceNewton(SubspaceGD):
                       "reduced_dim",
                       "mode",
                       "backward"]
-
-  def subspace_second_order_oracle(self,x,Mk):
-    reduced_dim = Mk.shape[0]
-    d = jnp.zeros(reduced_dim,dtype = self.dtype)
-    sub_func = lambda d: self.f(x +Mk.transpose(0,1)@d)
-    return hessian(sub_func)(d)
-    
-
+  
   def __iter_per__(self, params):
     reduced_dim = params["reduced_dim"]
     dim = params["dim"]
@@ -267,13 +270,6 @@ class LimitedMemoryNewton(optimization_solver):
       "beta",
       "backward"
     ]
-  
-  def subspace_first_order_oracle(self,x,Mk):
-    subspace_func = lambda d:self.f(x + Mk.transpose(0,1)@d)
-    if self.backward_mode:
-      matrix_size = Mk.shape[0]
-      d = jnp.zeros(matrix_size,dtype=self.dtype)
-      return grad(subspace_func)(d)
     
   def generate_matrix(self,matrix_size,gk):
     # P^\top = [x_0,\nabla f(x_0),...,x_k,\nabla f(x_k)]

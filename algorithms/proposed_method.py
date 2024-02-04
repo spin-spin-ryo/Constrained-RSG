@@ -1,8 +1,6 @@
 from algorithms.constrained_descent_method import constrained_optimization_solver
-from utils.calculate import inverse_xy,get_jvp,jax_randn
-import time
+from utils.calculate import inverse_xy,jax_randn
 from utils.logger import logger
-import random
 import numpy as np
 from environments import DIRECTIONALDERIVATIVE,FINITEDIFFERENCE
 import jax.numpy as jnp
@@ -28,17 +26,7 @@ class RSGLC(constrained_optimization_solver):
                   "mode",
                   "backward"]
   
-  def subspace_first_order_oracle(self,x,Mk):
-    reduced_dim = Mk.shape[0]
-    if isinstance(self.backward_mode,str):
-      if self.backward_mode == DIRECTIONALDERIVATIVE:
-        return get_jvp(self.f,x,Mk)
-    elif self.backward_mode:
-      subspace_func = lambda d:self.f(x + Mk.T@d)
-      d = jnp.zeros(reduced_dim,dtype=self.dtype)
-      return grad(subspace_func)(d)
-     
-  
+
   def __iter_per__(self,params):
     eps0 = params["eps0"]
     delta1 = params["delta1"]
