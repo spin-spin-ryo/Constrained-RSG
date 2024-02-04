@@ -24,9 +24,10 @@ class optimization_solver:
     return self.f(x)
 
   def __first_order_oracle__(self,x,output_loss = False):
+    x_grad = None
     if isinstance(self.backward_mode,str):
       if self.backward_mode == DIRECTIONALDERIVATIVE:
-        return get_jvp(self.f,x,None)
+        x_grad = get_jvp(self.f,x,None)
       elif self.backward_mode == FINITEDIFFERENCE:
         dim = x.shape[0]
         d = np.zeros(dim,dtype=self.dtype)
@@ -37,23 +38,18 @@ class optimization_solver:
         z = self.f(x)
         for i in range(dim):
           d[i] = (self.f(x + h*e) - z)/h
-        return jnp.array(d)
-    elif self.backward_mode:
-      x_grad = self.f_grad(x)
-      if output_loss:
-        return x_grad,self.f(x)
-      else:
-        return x_grad
-    
-    elif isinstance(self.backward_mode,str):
-      if self.backward_mode == DIRECTIONALDERIVATIVE:
-        pass
-      elif self.backward_mode == FINITEDIFFERENCE:
-        pass
+        x_grad = jnp.array(d)
       else:
         raise ValueError(f"{self.backward_mode} is not implemented.")
-      
-  
+    elif self.backward_mode:
+      x_grad = self.f_grad(x)
+
+    if output_loss:
+      return x_grad,self.f(x)
+    else:
+      return x_grad
+    
+    
   def __second_order_oracle__(self,x):
     return hessian(self.f)(x)
   
