@@ -5,15 +5,20 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 def get_path_form_params(params:dict):
-    save_path = ""
+    save_path = ''
     for k,v in params.items():
         save_path += str(k) + DISTINCT_PARAM_VALUE + str(v) + DISTINCT_PARAMS
 
     save_path = save_path[:-1]
     return save_path
 
-def get_params_from_path(save_path):
-  return
+def get_params_from_path(save_dir_name):
+	params = save_dir_name.split(DISTINCT_PARAMS)
+	params_dict = {}
+	for param in params:
+		param_name,param_value = param.split(DISTINCT_PARAM_VALUE)
+		params_dict[param_name] = param_value
+	return params_dict
 
 def get_only_directories(path):
 	filelist = []

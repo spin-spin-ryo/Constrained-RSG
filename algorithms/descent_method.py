@@ -334,7 +334,8 @@ class BacktrackingProximalGD(optimization_solver):
     self.params_key = [
       "eps",
       "beta",
-      "backward"
+      "backward",
+      "alpha"
     ]
   
   def __run_init__(self, f, prox, x0, iteration):
@@ -360,8 +361,7 @@ class BacktrackingProximalGD(optimization_solver):
     return
   
 
-  def backtracking_with_prox(self,x,grad,beta,max_iter = 10000,loss = None):
-    t = 1
+  def backtracking_with_prox(self,x,grad,beta,t = 1,max_iter = 10000,loss = None):
     if loss is None:
       loss = self.f(x)
     prox_x = self.prox(x - t*grad,t)
@@ -377,8 +377,9 @@ class BacktrackingProximalGD(optimization_solver):
   def __iter_per__(self, params):
     beta = params["beta"]
     eps = params["eps"]
+    alpha = params["alpha"]
     grad,loss = self.__first_order_oracle__(self.xk,output_loss=True)
-    prox_x,t = self.backtracking_with_prox(self.xk,grad,beta,loss=loss)
+    prox_x,t = self.backtracking_with_prox(self.xk,grad,beta,t = alpha,loss=loss)
     if self.check_norm(self.xk - prox_x,t*eps):
       self.finish = True
     self.xk = prox_x.copy()     
@@ -395,8 +396,13 @@ class BacktrackingAcceleratedProximalGD(BacktrackingProximalGD):
       "restart",
       "beta",
       "eps",
-      "backward"
+      "backward",
+      "alpha"
     ]
+  
+  def run(self, f, prox, x0, iteration, params, save_path, log_interval=-1):
+    self.tk = params["alpha"]
+    return super().run(f, prox, x0, iteration, params, save_path, log_interval)
   
   def __run_init__(self,f, prox,x0,iteration):
     self.k = 0

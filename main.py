@@ -78,8 +78,8 @@ def run_numerical_experiment(config):
               save_path=save_path,
               log_interval=log_interval
               )
-
-  nonzero_index = solver.save_values["func_values"] != 0
+  solver.save_results(save_path)
+  nonzero_index = solver.save_values["time"] > 0
   min_f_value = np.min(solver.save_values["func_values"][nonzero_index])
   execution_time = solver.save_values["time"][-1]
   values_dict = {
