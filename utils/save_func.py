@@ -15,6 +15,25 @@ def get_path_form_params(params:dict):
 def get_params_from_path(save_path):
   return
 
+def get_only_directories(path):
+	filelist = []
+	for f in os.listdir(path):
+		if os.path.isdir(os.path.join(path, f)):
+			filelist.append(f)
+	return filelist	
+
+def check_file_in_directory(file_name,dir_name):
+	for file in os.listdir(dir_name):
+		if file_name == file:
+			return True
+	return False
+
+def get_extension(path):
+	return path.split(".")[-1]
+
+def get_file_name_without_extension(path):
+	return path.split(".")[-2]
+
 def save_config(config,save_path):
 	with open(save_path,"w") as f:
 		json.dump(config,f,indent=2)
@@ -30,6 +49,7 @@ def plot_results(save_path,values_dict):
 		plt.plot(np.arange(len(v)),v)
 		if k == "grad_norm":
 			plt.yscale("log")
+		plt.show(block=False)
 		plt.savefig(os.path.join(save_path,k+".png"))
 		plt.close()
 
