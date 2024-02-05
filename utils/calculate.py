@@ -44,7 +44,7 @@ def generate_semidefinite(dim,rank):
    key, _ = random.split(key)
    return P@transpose(P,(1,0))/dim
 
-def generate_symmetric(dim,device):
+def generate_symmetric(dim):
    global key
    P = random.normal(key,(dim,dim))
    key, _ = random.split(key)

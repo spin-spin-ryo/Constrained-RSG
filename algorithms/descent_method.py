@@ -119,7 +119,7 @@ class optimization_solver:
       T = time.time() - start_time
       F = self.f(self.xk)
       self.update_save_values(i+1,time = T,func_values = F)
-      if (i+1)%log_interval == 0 & log_interval != -1:
+      if (i+1)%log_interval == 0 and log_interval != -1:
         logger.info(f'{i+1}: {self.save_values["func_values"][i+1]}')
         self.save_results(save_path)
     return
@@ -355,7 +355,7 @@ class BacktrackingProximalGD(optimization_solver):
         break
       self.save_values["time"][i+1] = time.time() - start_time
       self.save_values["func_values"][i+1] = self.f(self.xk)
-      if (i+1)%log_interval == 0 & log_interval != -1:
+      if (i+1)%log_interval == 0 and log_interval != -1:
         logger.info(f'{i+1}: {self.save_values["func_values"][i+1]}')
         self.save_results(save_path)
     return
