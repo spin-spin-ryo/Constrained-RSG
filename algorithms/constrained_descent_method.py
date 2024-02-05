@@ -35,14 +35,8 @@ class constrained_optimization_solver(optimization_solver):
     return
   
   def __run_init__(self, f,con, x0, iteration):
-    self.f = f
     self.con = con
-    self.xk = x0.copy()
-    self.save_values["func_values"] = np.zeros(iteration+1)
-    self.save_values["time"] = np.zeros(iteration+1)
-    self.finish = False
-    self.save_values["func_values"][0] = self.f(self.xk)
-
+    return super().__run_init__(f, x0, iteration)
 
   def evaluate_constraints_values(self,x):
     return self.con(x)

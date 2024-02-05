@@ -88,7 +88,7 @@ class RSGLC(constrained_optimization_solver):
         l = np.array(self.lk)
         l[l>0] = 0
         l = reduced_dim/dim*jnp.array(l)
-        direction2 = -active_constraints_projected_grads.transpose(0,1)@jnp.linalg.solve(A,-l)
+        direction2 = -active_constraints_projected_grads.T@jnp.linalg.solve(A,-l)
         return direction2
     else:
       return direction1
@@ -209,7 +209,7 @@ class RSGNC(RSGLC):
       direction1 =  -projected_grad
     else:
       GMMf = active_constraints_projected_grads@projected_grad
-      GMMG = active_constraints_projected_grads@active_constraints_projected_grads.transpose(0,1)
+      GMMG = active_constraints_projected_grads@active_constraints_projected_grads.T
       wk = jnp.linalg.norm(active_constraints_projected_grads,axis = 1)
       GMMG_inv = jnp.linalg.inv(GMMG)
       rk = r/jnp.sqrt(GMMG_inv@wk@wk)
