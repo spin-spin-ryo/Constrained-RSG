@@ -148,7 +148,7 @@ class DynamicBarrierGD(constrained_optimization_solver):
                f=func,
                prox=prox,
                iteration=inner_iteration,
-               save_path=""
+               save_path="",
                params=params)
     return solver.xk
     
