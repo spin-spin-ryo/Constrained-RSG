@@ -143,7 +143,8 @@ class DynamicBarrierGD(constrained_optimization_solver):
     solver = BacktrackingAcceleratedProximalGD(dtype = self.dtype)
     params = {"restart":True,
               "beta":0.8,
-              "eps":sub_problem_eps}
+              "eps":sub_problem_eps,
+              "alpha":1}
     solver.run(x0=x0,
                f=func,
                prox=prox,
