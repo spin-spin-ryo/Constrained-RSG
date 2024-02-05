@@ -26,7 +26,8 @@ def show_result_with_option(result_pathes,options):
   plt.gca().ticklabel_format(style="sci",scilimits=(0,0))
     
   for result_path in result_pathes:
-    labeled[result_path] = result_path
+    params = result_path.split(SLASH)
+    labeled[result_path] = SLASH.join(params[-2:])
         
     #option関連
   for k,v in options.items():

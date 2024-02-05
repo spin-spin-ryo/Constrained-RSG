@@ -22,6 +22,11 @@ class Labeled_cmbbox:
   
   def get_value_of_param(self):
     return self.cmbbox.get()
+  
+  def destroy(self):
+    self.label.destroy()
+    self.cmbbox.destroy()
+    self.frame.destroy()
 
 class select_objective_box:
   def __init__(self,parent) -> None:
@@ -52,6 +57,10 @@ class select_objective_box:
       for k,v in params_dict.items():
         values_dict[k].add(v)
     
+    for param in self.params_box.keys():
+      self.params_box[param].destroy()
+    
+    self.params_box = {}
     for param,values in values_dict.items():
       cmbbox = Labeled_cmbbox(self.frame,text=param,values=list(values))
       cmbbox.pack()
@@ -99,6 +108,10 @@ class select_constraints_box:
       for k,v in params_dict.items():
         values_dict[k].add(str(v))
     
+    for param in self.params_box.keys():
+      self.params_box[param].destroy()
+    self.params_box = {}
+    
     for param,values in values_dict.items():
       cmbbox = Labeled_cmbbox(self.frame,text=param,values=list(values))
       cmbbox.pack()
@@ -132,7 +145,7 @@ class solver_notebook:
     self.notebook.add(frame,text = str(count))
   
   def remove_page(self):
-    self.notebook.forget(len(self.pages))
+    self.notebook.forget(len(self.pages)-1)
     self.pages.pop()
   
   def pack(self):
@@ -168,6 +181,9 @@ class page_content:
           values_dict[k] = set()
           values_dict[k].add(str(v))
     
+    for param in self.params_box.keys():
+      self.params_box[param].destroy()
+    self.params_box = {}
     for param,values in values_dict.items():
       cmbbox = Labeled_cmbbox(self.frame,text=param,values=list(values))
       cmbbox.pack()
