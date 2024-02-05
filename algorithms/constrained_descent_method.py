@@ -131,7 +131,11 @@ class DynamicBarrierGD(constrained_optimization_solver):
       barrier_func_values = self.barrier_func(constraints_grads,constraints_values,alpha,beta,type)
       def func(l):
         return 1/2*(grad + transpose(constraints_grads,(1,0))@l)@(grad + transpose(constraints_grads,(1,0))@l) - l@barrier_func_values
-      self.lk = self.solve_subproblem_by_APGD(func,nonnegative_projection,sub_problem_eps,inner_iteration)
+      self.lk = self.solve_subproblem_by_APGD(func = func,
+                                              prox = nonnegative_projection,
+                                              x0 = jnp.array(constraints_grads.shape[0],dtype = self.dtype), 
+                                              sub_problem_eps=sub_problem_eps,
+                                              inner_iteration=inner_iteration)
 
 
 
@@ -153,8 +157,8 @@ class DynamicBarrierGD(constrained_optimization_solver):
     beta = params["beta"]
     lr = params["lr"]
     barrier_func_type = params["barrier_func_type"]
-    sub_problem_eps = 1e-6
-    inner_iteration = 10000
+    inner_iteration = params["inner_iteration"]
+    sub_problem_eps = params["sub_problem_eps"]
     grad = self.__first_order_oracle__(self.xk)
     constraints_grads = self.evaluate_constraints_grads(self.xk)
     constraints_values = self.evaluate_constraints_values(self.xk)
