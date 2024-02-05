@@ -54,6 +54,7 @@ def show_result_with_option(result_pathes,options):
           labeled[result_path] = solver_name
                 
   for result_path in result_pathes:
+    print(result_path)
     if mode == "best":
       fvalues.append(jnp.load(os.path.join(result_path,"func_values.npy")))
       time_values.append(jnp.load(os.path.join(result_path,"time.npy")))
@@ -85,7 +86,7 @@ def show_result_with_option(result_pathes,options):
   
   plt.rc('font', size=TICKLABELSIZE)
   if not labeledflag:
-    plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.05), ncol=1,borderaxespad=0,fontsize = 18)
+    plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.05), ncol=1,borderaxespad=0,fontsize = LABELFONTSIZE)
   else:
     plt.legend()
   plt.ylabel(r'$f(x)$',fontsize = LABELFONTSIZE)
