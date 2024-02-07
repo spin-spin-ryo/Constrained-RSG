@@ -122,7 +122,7 @@ class DynamicBarrierGD(constrained_optimization_solver):
   def get_lambda(self,grad,constraints_grads,constraints_values,alpha,beta,type,sub_problem_eps = 1e-6,inner_iteration = 100000):
     if constraints_grads.shape[0] == 1:
       # 制約が一つの場合
-      l = (self.barrier_func(constraints_grads,constraints_values,alpha,beta,type) - grad@constraints_grads)/(jnp.linalg.norm(constraints_grads)**2)
+      l = (self.barrier_func(constraints_grads,constraints_values,alpha,beta,type) - grad@constraints_grads[0])/(jnp.linalg.norm(constraints_grads[0])**2)
       if l >= 0:
         self.lk = l
       else:
