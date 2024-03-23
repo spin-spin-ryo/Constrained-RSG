@@ -28,7 +28,7 @@ def avg_pool2d(input, kernel_size , stride=None, padding=0):
 
 @jit
 def cross_entropy_loss(logits, labels):
-    logits = nn.log_softmax(logits)
-    loss = vmap(getitem)(logits, labels.astype(jnp.int64))
-    loss = -loss.mean()
-    return loss
+  logits = nn.log_softmax(logits)
+  loss = vmap(getitem)(logits, labels.astype(jnp.int64))
+  loss = -loss.mean()
+  return loss
