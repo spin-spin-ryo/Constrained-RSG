@@ -1,6 +1,8 @@
 from algorithms.constrained_descent_method import constrained_optimization_solver
+from algorithms.zeroth_method import zeroth_solver
 from utils.calculate import inverse_xy,jax_randn
 from utils.logger import logger
+from utils.select import get_step_scheduler_func
 import numpy as np
 from environments import DIRECTIONALDERIVATIVE,FINITEDIFFERENCE
 import jax.numpy as jnp
@@ -238,3 +240,71 @@ class RSGNC(RSGLC):
         return direction2
     else:
       return direction1
+
+class RSRGF(zeroth_solver):
+  def __init__(self, dtype=jnp.float64) -> None:
+    super().__init__(dtype)
+    self.step_scheduler_func = None
+    self.params_key = [
+      "lr",
+      "sample_size",
+      "reduced_dim",
+      "mu",
+      "schedule",
+      "central",
+      "projection"
+    ]
+  
+  def __run_init__(self, f, x0, iteration, params):
+    super().__run_init__(f, x0, iteration, params)
+    self.step_scheduler_func = get_step_scheduler_func(params["schedule"])
+
+  def __direction__(self,loss):
+    reduced_dim = self.params["reduced_dim"]
+    sample_size = self.params["sample_size"]
+    mu = self.params["mu"]
+    dim = self.xk.shape[0]
+    P = jax_randn(dim,reduced_dim,dtype = self.dtype)/(dim**0.5)
+    subspace_dir = None
+    if self.params["projection"]:
+      U = jax_randn(sample_size,reduced_dim+1,dtype = self.dtype)/(sample_size**0.5)
+      U = U.at[:, 0].set(1)
+    else:
+      U = jax_randn(sample_size,reduced_dim,dtype = self.dtype)/(sample_size**0.5)
+    
+    if self.params["central"]:
+      if self.params["projection"]:
+        for i in range(sample_size):
+          m = mu*P@U[i,1:]
+          g1 = self.func(self.xk + m,u= mu*U[i])
+          g2 = self.func(self.xk - m,u= mu*U[i])
+          if subspace_dir is None:
+            subspace_dir = (g1 - g2)/(2*mu) * U[i,1:]
+          else:
+            subspace_dir += (g1 - g2)/(2*mu) * U[i,1:]
+      else:
+        for i in range(sample_size):
+          m = mu*P@U[i]
+          g1 = self.func(self.xk + m)
+          g2 = self.func(self.xk - m)
+          if subspace_dir is None:
+            subspace_dir = (g1 - g2)/(2*mu) * U[i]
+          else:
+            subspace_dir += (g1 - g2)/(2*mu) * U[i]
+    else:
+      for i in range(sample_size):
+        g1 = self.func(self.xk + m)
+        if subspace_dir is None:
+          subspace_dir = (g1 - loss.item())/mu * U[i]
+        else:
+          subspace_dir += (g1 - loss.item())/mu * U[i]
+    return - P@subspace_dir
+
+  def __step_size__(self, iter):
+    return self.step_scheduler_func(iter)*self.params["lr"]
+    
+  def __iter_per__(self, iter):
+    loss = self.save_values["func_values"][iter]
+    dk = self.__direction__(loss)
+    lr = self.__step__(iter)
+    self.__update__(lr*dk)

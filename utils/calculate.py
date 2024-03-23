@@ -148,3 +148,9 @@ def get_hessian_with_hvp(f,x,M):
       MHM[i,j] = a
       MHM[j,i] = a
   return MHM
+
+def constant(iter):
+  return 1
+
+def inverse(iter):
+  return 1/iter
