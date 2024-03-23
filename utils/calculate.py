@@ -1,7 +1,7 @@
 from jax import jacrev,jacfwd
 import jax.numpy as jnp
 from jax.lax import transpose
-from jax import random,jvp
+from jax import random,jvp,grad
 from environments import key
 import numpy as np
 
@@ -16,10 +16,10 @@ def inverse_xy(x,y):
     return jnp.eye(dim,dtype=dtype) - (jnp.expand_dims(x,1)@jnp.expand_dims(y,0))/(1+x@y)
 
 def get_minimum_eigenvalue(H):
-    return jnp.min(jnp.linalg.eigvals(H))
+    return jnp.min(jnp.linalg.eigvalsh(H))
 
 def get_maximum_eigenvalue(H):
-    return jnp.max(jnp.linalg.eigvals(H))
+    return jnp.max(jnp.linalg.eigvalsh(H))
 
 def line_search(xk,func,grad,dk,alpha,beta,loss = None):
   if loss is None:
@@ -27,6 +27,8 @@ def line_search(xk,func,grad,dk,alpha,beta,loss = None):
   lr = 1
   while loss - func(xk + lr*dk) < -alpha*lr*grad@dk:
     lr *= beta 
+    if lr < 1e-12:
+      return 0
   return lr
 
 def subspace_line_search(xk,func,projected_grad,dk,Mk,alpha,beta,loss = None):
@@ -34,8 +36,10 @@ def subspace_line_search(xk,func,projected_grad,dk,Mk,alpha,beta,loss = None):
       loss = func(xk)
     lr = 1
     proj_dk = transpose(Mk,(1,0))@dk
-    while loss.item() - func(xk + lr*proj_dk) < -alpha*lr*projected_grad@dk:
-      lr *= beta 
+    while loss - func(xk + lr*proj_dk) < -alpha*lr*projected_grad@dk:
+      lr *= beta
+      if lr < 1e-12:
+        return 0 
     return lr
 
 def generate_semidefinite(dim,rank):
@@ -73,6 +77,9 @@ def BoxProjection(x,radius = 1):
     y[y>radius] = radius
     y[y<-radius] = -radius
     return jnp.array(y)
+
+def identity_prox(x,t):
+  return x
 
 def L1projection(x,radius = 1):
   if jnp.linalg.norm(x,ord=1)<=radius:
@@ -118,3 +125,26 @@ def get_jvp(func,x,M):
       d[i] = directional_derivative
       e = jnp.roll(e,1)
     return jnp.array(d)
+  
+def clipping_eigenvalues(B,lower,upper):
+  eig_vals,eig_vecs = jnp.linalg.eigh(B)
+  eig_vals = np.array(eig_vals)
+  eig_vals[eig_vals< lower] = lower
+  eig_vals[eig_vals > upper] = upper
+  eig_vals = jnp.array(eig_vals)
+  return eig_vecs@jnp.diag(eig_vals)@eig_vecs.T
+
+# forward-over-reverse
+def hvp(f, primals, tangents):
+  return jvp(grad(f), primals, tangents)[1]
+
+def get_hessian_with_hvp(f,x,M):
+  reduced_dim = M.shape[0]
+  MHM = np.zeros((reduced_dim,reduced_dim),dtype = x.dtype)
+  for i in range(reduced_dim):
+    Hm = hvp(f,(x,),(M[i],))
+    for j in range(i,reduced_dim):
+      a = jnp.dot(Hm,M[j])
+      MHM[i,j] = a
+      MHM[j,i] = a
+  return MHM

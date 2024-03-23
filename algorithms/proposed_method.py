@@ -27,15 +27,15 @@ class RSGLC(constrained_optimization_solver):
                   "backward"]
   
 
-  def __iter_per__(self,params):
-    eps0 = params["eps0"]
-    delta1 = params["delta1"]
-    eps2 = params["eps2"]
-    dim = params["dim"]
-    mode = params["mode"]
-    alpha1 = params["alpha1"]
-    alpha2 = params["alpha2"]
-    beta = params["beta"]
+  def __iter_per__(self):
+    eps0 = self.params["eps0"]
+    delta1 = self.params["delta1"]
+    eps2 = self.params["eps2"]
+    dim = self.params["dim"]
+    mode = self.params["mode"]
+    alpha1 = self.params["alpha1"]
+    alpha2 = self.params["alpha2"]
+    beta = self.params["beta"]
     Gk = self.get_active_constraints_grads(eps0)
     while self.reduced_dim-self.active_num < 5:
       self.reduced_dim += 10
@@ -97,10 +97,10 @@ class RSGLC(constrained_optimization_solver):
     self.first_check = False
     return super().__clear__()
   
-  def __run_init__(self, f, con, x0, iteration):
+  def __run_init__(self, f, con, x0, iteration,params):
     self.save_values["active"] = np.zeros(iteration+1)
     self.save_values["grad_norm"] = np.zeros(iteration+1)  
-    return super().__run_init__(f, con, x0, iteration)
+    return super().__run_init__(f, con, x0, iteration,params)
   
   def run(self, f, con, x0, iteration, params, save_path, log_interval=-1):
     self.reduced_dim = params["reduced_dim"]
@@ -170,18 +170,18 @@ class RSGNC(RSGLC):
                   "r",
                   "backward"]
       
-  def __iter_per__(self,params):
+  def __iter_per__(self):
     # 後でx.gradについて確認
-    eps0 = params["eps0"]
-    delta1 = params["delta1"]
-    eps2 = params["eps2"]
-    dim = params["dim"]
-    reduced_dim = params["reduced_dim"]
-    mode = params["mode"]
-    alpha1 = params["alpha1"]
-    alpha2 = params["alpha2"]
-    beta = params["beta"]
-    r = params["r"]
+    eps0 = self.params["eps0"]
+    delta1 = self.params["delta1"]
+    eps2 = self.params["eps2"]
+    dim = self.params["dim"]
+    reduced_dim = self.params["reduced_dim"]
+    mode = self.params["mode"]
+    alpha1 = self.params["alpha1"]
+    alpha2 = self.params["alpha2"]
+    beta = self.params["beta"]
+    r = self.params["r"]
     Gk = self.get_active_constraints_grads(eps0)
     Mk = self.generate_matrix(dim,reduced_dim,mode)
     GkMk = self.get_projected_gradient_by_matmul(Mk,Gk)

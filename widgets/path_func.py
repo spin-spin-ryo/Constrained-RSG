@@ -5,6 +5,50 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import ScalarFormatter
 SLASH = os.path.join("a","b")[1:-1]
 import jax.numpy as jnp
+from environments import *
+
+FORMAL_LABEL = {
+  GRADIENT_DESCENT:GRADIENT_DESCENT,
+  SUBSPACE_GRADIENT_DESCENT:SUBSPACE_GRADIENT_DESCENT,
+  ACCELERATED_GRADIENT_DESCENT:ACCELERATED_GRADIENT_DESCENT,
+  NEWTON:NEWTON,
+  SUBSPACE_NEWTON:SUBSPACE_NEWTON,
+  LIMITED_MEMORY_NEWTON:LIMITED_MEMORY_NEWTON,
+  LIMITED_MEMORY_BFGS:LIMITED_MEMORY_BFGS,
+  BFGS_QUASI_NEWTON:BFGS_QUASI_NEWTON,
+  RANDOM_BFGS:RANDOM_BFGS,
+  SUBSPACE_REGULARIZED_NEWTON:SUBSPACE_REGULARIZED_NEWTON,
+  PROXIMAL_GRADIENT_DESCENT:PROXIMAL_GRADIENT_DESCENT,
+  ACCELERATED_PROXIMAL_GRADIENT_DESCENT:ACCELERATED_GRADIENT_DESCENT,
+  MARUMO_AGD:MARUMO_AGD,
+  SUBSPACE_QUASI_NEWTON:SUBSPACE_QUASI_NEWTON
+}
+
+MARKERS = {
+  GRADIENT_DESCENT:"x",
+  SUBSPACE_GRADIENT_DESCENT:"s",
+  ACCELERATED_GRADIENT_DESCENT:"o",
+  NEWTON:"v",
+  SUBSPACE_NEWTON:"^",
+  LIMITED_MEMORY_NEWTON:"<",
+  LIMITED_MEMORY_BFGS:">",
+  BFGS_QUASI_NEWTON:"D",
+  RANDOM_BFGS:"8",
+  SUBSPACE_REGULARIZED_NEWTON:"+",
+  PROXIMAL_GRADIENT_DESCENT:".",
+  ACCELERATED_PROXIMAL_GRADIENT_DESCENT:"o",
+  MARUMO_AGD:"o",
+  SUBSPACE_QUASI_NEWTON:""
+}
+
+MARKERS_LIST = ["",
+                "o",
+                "x",
+                "s",
+                "v",
+                "*",
+                "+",
+                "^"]
 
 def show_result_with_option(result_pathes,options):
   fvalues = []
@@ -13,12 +57,15 @@ def show_result_with_option(result_pathes,options):
   labeled = {}
   start = 0
   end = -1
-  mode = "best"
+  mode = "function_value"
   xscale = ""
   yscale = ""
   full_line = 100
   LABELFONTSIZE = 18
   TICKLABELSIZE = 18
+  LEGENDFONTSIZE = 18
+  are_all_proposed = True
+  plt.figure()
   plt.rcParams["font.family"] = 'Times New Roman'
   plt.rcParams["mathtext.fontset"] = 'stix'
   plt.gca().xaxis.set_major_formatter(ScalarFormatter(useMathText=True))
@@ -47,50 +94,75 @@ def show_result_with_option(result_pathes,options):
       LABELFONTSIZE = v
     if k == "tick_fontsize":
       TICKLABELSIZE = v
+    if k == "legend_fontsize":
+      LEGENDFONTSIZE = v
     if k == "label":
       labeledflag = v
       for result_path in result_pathes:
+        solver_name = result_path.split(SLASH)[-2]
+        are_all_proposed = ("Proposed" == solver_name)
+
+      for result_path in result_pathes:
         if v:
           solver_name = result_path.split(SLASH)[-2]
-          labeled[result_path] = solver_name
+          param_dir = result_path.split(SLASH)[-1]
+          param_dict = get_params_from_path(param_dir)
+          if solver_name == "Proposed":
+            matrix_size = param_dict["matrix_size"]
+            reduced_dim = param_dict["reduced_dim"]
+            if are_all_proposed:
+              labeled[result_path] = r"$(d = {}, m = {})$".format(reduced_dim,matrix_size)
+            else:
+              labeled[result_path] = FORMAL_LABEL[solver_name]+r"$(d = {}, m = {})$".format(reduced_dim,matrix_size)
+          else:
+            labeled[result_path] = FORMAL_LABEL[solver_name]
                 
   for result_path in result_pathes:
     print(result_path)
-    if mode == "best":
+    if mode == "function_value":
       fvalues.append(jnp.load(os.path.join(result_path,"func_values.npy")))
       time_values.append(jnp.load(os.path.join(result_path,"time.npy")))
+    elif mode == "grad_norm":
+      fvalues.append(jnp.load(os.path.join(result_path,"grad_norm.npy")))
+      time_values.append(jnp.load(os.path.join(result_path,"time.npy")))
       
-  if "time" in xscale:
-    for index,(p,v,t) in enumerate(zip(result_pathes,fvalues,time_values)):
-      nonzeroindex = t>0
-      v = v[nonzeroindex]
+  for index,(p,v,t) in enumerate(zip(result_pathes,fvalues,time_values)):
+    nonzeroindex = t>0
+    nonzeroindex = np.array(nonzeroindex)
+    nonzeroindex[0] = True
+    v = v[nonzeroindex]
+    solver_name = p.split(SLASH)[-2]
+    if "time" in xscale:
       t = t[nonzeroindex]
-      if end != -1:
-        index = t < end
-      else:
-        index = np.ones(len(t),dtype=bool)    
-      # start = 0　想定
-      if "proposed" in p:
-        plt.plot(t[index][::full_line],v[index][::full_line],label = labeled[p])
-      else:
-        plt.plot(t[index][::full_line],v[index][::full_line],label = labeled[p],linestyle = "dotted")
-    plt.xlabel("Time[s]",fontsize = LABELFONTSIZE)
-  else:
-    for index,(p,v,t) in enumerate(zip(result_pathes,fvalues,time_values)):
-      nonzeroindex = t > 0
-      v = v[nonzeroindex]
-      if "proposed" in p:
-        plt.plot(np.arange(len(v))[start:end][::full_line],v[start:end][::full_line],label = labeled[p])
-      else:
-        plt.plot(np.arange(len(v))[start:end][::full_line],v[start:end][::full_line],label = labeled[p],linestyle = "dotted")
-    plt.xlabel("Iterations",fontsize = LABELFONTSIZE)
-  
+      t+=1
+      x_list = t
+      y_list = v   
+      plt.xlabel("Time[s]",fontsize = LABELFONTSIZE)
+    else:
+      x_list = np.arange(1,len(v)+1)
+      y_list = v
+      plt.xlabel("Iterations",fontsize = LABELFONTSIZE)
+    
+    if full_line*10 < len(v):
+      x_list = x_list[::full_line]
+      y_list = y_list[::full_line]
+    
+    if not are_all_proposed:
+      plt.plot(x_list,y_list,marker = MARKERS[solver_name],label = labeled[p])
+    else:
+      plt.plot(x_list,y_list,marker = MARKERS_LIST[index],label = labeled[p])
+
+  if end != -1:
+    plt.xlim(left = start-end*0.1,right = end*1.1)
   plt.rc('font', size=TICKLABELSIZE)
   if not labeledflag:
-    plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.05), ncol=1,borderaxespad=0,fontsize = LABELFONTSIZE)
+    plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.05), ncol=1,borderaxespad=0,fontsize = LEGENDFONTSIZE)
   else:
-    plt.legend()
-  plt.ylabel(r'$f(x)$',fontsize = LABELFONTSIZE)
+    plt.legend(fontsize = LEGENDFONTSIZE)
+  if mode == "function_value":
+    plt.ylabel(r'$f(x)$',fontsize = LABELFONTSIZE)
+  elif mode == "grad_norm":
+    plt.ylabel(r'$\|\nabla f(x)\|$',fontsize = LABELFONTSIZE)
   if "log" in xscale:
     plt.xscale("log")
   if yscale == "log":

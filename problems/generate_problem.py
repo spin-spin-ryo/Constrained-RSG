@@ -6,6 +6,10 @@ from utils.calculate import generate_symmetric,generate_semidefinite,nonnegative
 from utils.select import get_activation,get_criterion
 import os
 from jax.lax import transpose
+import jax.nn as nn
+from sklearn.datasets import load_svmlight_file
+from jax.experimental.sparse import BCSR
+        
 
 objective_properties_key ={
     QUADRATIC:["dim","convex","data_name"],
@@ -14,7 +18,11 @@ objective_properties_key ={
     MATRIXFACTORIZATION_COMPLETION:["data_name","rank"],
     LEASTSQUARE:["data_name","data_size","dim"],
     MLPNET: ["data_name","layers_size","activation","criterion"],
-    CNN: ["data_name","layers_size","activation","criterion"]
+    CNN: ["data_name","layers_size","activation","criterion"],
+    SOFTMAX:["data_name"],
+    LOGISTIC:["data_name"],
+    SPARSEGAUSSIANPROCESS:["data_name","reduced_data_size","kernel_mode"],
+    REGULARIZED: ["coeff","ord","Fused"]
 }
 
 constraints_properties_key = {
@@ -27,6 +35,9 @@ constraints_properties_key = {
 }
 
 def generate_objective(function_name,function_properties):
+    use_regularized = REGULARIZED in function_name
+    if use_regularized:
+        function_name = function_name.replace(REGULARIZED,"")
     if function_name == QUADRATIC:
         f = generate_quadratic(function_properties)
     elif function_name == SPARSEQUADRATIC:
@@ -41,8 +52,17 @@ def generate_objective(function_name,function_properties):
         f = generate_mlpnet(function_properties)
     elif function_name == CNN:
         f = generate_cnn(function_properties)
+    elif function_name == SOFTMAX:
+        f = generate_softmax(function_properties)
+    elif function_name == LOGISTIC:
+        f = generate_logistic(function_properties)
+    elif function_name == SPARSEGAUSSIANPROCESS:
+        f = generate_sparse_gaussian_process(function_properties)
     else:
         raise ValueError(f"{function_name} is not implemented.")
+    
+    if use_regularized:
+        f = wrapping_regularization(f,function_properties)
     return f
 
 def generate_constraints(constraints_name, constraints_properties):
@@ -78,6 +98,7 @@ def generate_constraints(constraints_name, constraints_properties):
 
 def generate_initial_points(func,function_name,constraints_name,function_properties):
     dim = func.get_dimension()
+    function_name = function_name.replace(REGULARIZED,"")
     # 非負制約の時のみすべて1
     if constraints_name == NONNEGATIVE:
         x0 = jnp.ones(dim)
@@ -85,8 +106,7 @@ def generate_initial_points(func,function_name,constraints_name,function_propert
     
     if function_name == MLPNET:
         if function_properties["data_name"] == "mnist":
-            # dim:669706
-            x0 = jnp.load(os.path.join(DATAPATH,"mnist","mlpnet","init_param.npy"))
+            x0 = jnp.load(os.path.join(DATAPATH,"mnist","mlpnet",f"init_param_{dim}.npy"))
             return x0
     
     if function_name == CNN:
@@ -94,8 +114,24 @@ def generate_initial_points(func,function_name,constraints_name,function_propert
             # dim:33738
             x0 = jnp.load(os.path.join(DATAPATH,"mnist","cnn","init_param.npy"))
             return x0
+    if function_name == MATRIXFACTORIZATION_COMPLETION or function_name == MATRIXFACTORIZATION:
+        x0 = jnp.ones(dim)
+        return x0
+    
     x0 = jnp.zeros(dim)
     return x0
+
+def wrapping_regularization(f,properties):
+    ord = int(properties["ord"])
+    coefficient = float(properties["coeff"])
+    use_fused = bool(properties["Fused"])
+    if use_fused:
+        A = None
+        pass
+    else:
+        A = None
+    params = [ord,coefficient,A]
+    return regularzed_wrapper(f,params)
 
 def generate_quadratic(properties):
     dim = int(properties["dim"])
@@ -241,6 +277,62 @@ def generate_cnn(properties):
     params = [data[:data_num],label[:data_num],class_num,data_size,layers_size]
     f = CNNet(params,criterion=criterion,activation=activation)
     return f
+
+def generate_softmax(properties):
+    data_name = properties["data_name"]
+    if data_name == "Scotus":
+        path_dataset = os.path.join(DATAPATH,"classification","scotus_lexglue_tfidf_train.svm.bz2")
+        X,y = load_svmlight_file(path_dataset)
+        num_classes = len(jnp.unique(y))
+        y=nn.one_hot(y,num_classes=num_classes)
+        
+    elif data_name == "news20":
+        path_dataset = os.path.join(DATAPATH,"classification","news20.bz2")
+        X,y = load_svmlight_file(path_dataset)
+        num_classes = len(jnp.unique(y))
+        y=nn.one_hot(y,num_classes=num_classes)
+    X = BCSR.from_scipy_sparse(X)
+    y = jnp.array(y)
+    params = [X,y]
+    f = softmax(params)
+    return f
+
+def generate_logistic(properties):
+    data_name = properties["data_name"]
+    if data_name == "rcv1":
+        # [20242,47236]
+        path_dataset = os.path.join(DATAPATH,"classification","rcv1_train.binary.bz2")
+        X,y = load_svmlight_file(path_dataset)
+        
+    elif data_name == "news20":
+        # [19996,1355191]
+        path_dataset = os.path.join(DATAPATH,"classification","news20.binary.bz2")
+        X,y = load_svmlight_file(path_dataset)
+    X = BCSR.from_scipy_sparse(X)
+    y = jnp.array(y)
+    
+    params = [X,y]
+    f = logistic(params)
+    return f
+
+def generate_sparse_gaussian_process(properties):
+    data_name = properties["data_name"]
+    reduced_data_size = int(properties["reduced_data_size"])
+    kernel_mode = properties["kernel_mode"]
+    if data_name == "E2006":
+        path_dataset = os.path.join(DATAPATH,"regression","E2006.train.bz2")
+        X,y = load_svmlight_file(path_dataset)
+        data_dim = X.shape[1]
+        X = BCSR.from_scipy_sparse(X)
+        y = jnp.array(y)
+    elif data_name == "ackley":
+        X = jnp.load(os.path.join(DATAPATH,"regression","ackley_X.npy"))
+        y = jnp.load(os.path.join(DATAPATH,"regression","ackley_y.npy"))
+        data_dim = 10000
+    params = [X,y,data_dim,reduced_data_size,kernel_mode]
+    f = SparseGaussianProcess(params)
+    return f
+
 
 def generate_polytope(properties):
     data_name = properties["data_name"]

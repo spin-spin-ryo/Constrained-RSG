@@ -15,14 +15,14 @@ class constrained_optimization_solver(optimization_solver):
     self.con = None
   
   def run(self, f, con, x0, iteration, params, save_path, log_interval=-1):
-    self.__run_init__(f,con, x0, iteration)
+    self.__run_init__(f,con, x0, iteration,params)
     self.__check_params__(params)
     self.backward_mode = params["backward"]
     start_time = time.time()
     for i in range(iteration):
       self.__clear__()
       if not self.finish:
-        self.__iter_per__(params)
+        self.__iter_per__()
       else:
         logger.info("Stop Criterion")
         break
@@ -34,9 +34,10 @@ class constrained_optimization_solver(optimization_solver):
         self.save_results(save_path)
     return
   
-  def __run_init__(self, f,con, x0, iteration):
+  def __run_init__(self, f,con, x0, iteration,params):
     self.con = con
-    return super().__run_init__(f, x0, iteration)
+    return super().__run_init__(f, x0, iteration,params)
+
 
   def evaluate_constraints_values(self,x):
     return self.con(x)
@@ -61,12 +62,12 @@ class GradientProjectionMethod(constrained_optimization_solver):
     activate_constriants_index = constraints_values > - eps
     return constraints_grads[activate_constriants_index]
 
-  def __iter_per__(self, params:dict):
+  def __iter_per__(self):
     # 有効制約を保持しながら更新するともう少し高速になる
-    eps = params["eps"]
-    delta = params["delta"]
-    alpha = params["alpha"]
-    beta = params["beta"]
+    eps = self.params["eps"]
+    delta = self.params["delta"]
+    alpha = self.params["alpha"]
+    beta = self.params["beta"]
     # (*,n)
     Gk = self.get_activate_grads(eps) 
     grad = self.__first_order_oracle__(self.xk)
@@ -155,13 +156,13 @@ class DynamicBarrierGD(constrained_optimization_solver):
     return solver.xk
     
 
-  def __iter_per__(self, params):
-    alpha = params["alpha"]
-    beta = params["beta"]
-    lr = params["lr"]
-    barrier_func_type = params["barrier_func_type"]
-    inner_iteration = params["inner_iteration"]
-    sub_problem_eps = params["sub_problem_eps"]
+  def __iter_per__(self):
+    alpha = self.params["alpha"]
+    beta = self.params["beta"]
+    lr = self.params["lr"]
+    barrier_func_type = self.params["barrier_func_type"]
+    inner_iteration = self.params["inner_iteration"]
+    sub_problem_eps = self.params["sub_problem_eps"]
     grad = self.__first_order_oracle__(self.xk)
     constraints_grads = self.evaluate_constraints_grads(self.xk)
     constraints_values = self.evaluate_constraints_values(self.xk)
@@ -191,15 +192,15 @@ class PrimalDualInteriorPointMethod(constrained_optimization_solver):
   def get_surrogate_duality_gap(self,constraints_values):
     return - constraints_values@self.lk
   
-  def __run_init__(self, f, con, x0, iteration):
+  def __run_init__(self, f, con, x0, iteration,params):
     m = con.get_number_of_constraints()
     self.lk = jnp.ones(m,dtype = self.dtype,device = self.device)
-    return super().__run_init__(f, con, x0, iteration)
+    return super().__run_init__(f, con, x0, iteration,params)
   
-  def __iter_per__(self, params):
-    mu = params["mu"] # mu > 1
-    eps = params["eps"]
-    eps_feas = params["eps_feas"]
+  def __iter_per__(self):
+    mu = self.params["mu"] # mu > 1
+    eps = self.params["eps"]
+    eps_feas = self.params["eps_feas"]
     m = self.con.get_number_of_constraints()
     constraints_values = self.evaluate_constraints_values(self.xk)
     constraints_grads = self.evaluate_constraints_grads(self.xk)
@@ -212,7 +213,7 @@ class PrimalDualInteriorPointMethod(constrained_optimization_solver):
     if self.check_norm(r_dual,eps_feas) and eta<=eps:
       self.finish =True
       return
-    s = self.__step_size__(delta_x,delta_l,r_t,t,params)
+    s = self.__step_size__(delta_x,delta_l,r_t,t)
     self.__update__(s*delta_x,s*delta_l)
 
   def __update__(self, delta_x,delta_l):
@@ -247,9 +248,9 @@ class PrimalDualInteriorPointMethod(constrained_optimization_solver):
     delta_l = delta_y[r_dual.shape[0]:]
     return delta_x,delta_l,r,r_dual  
     
-  def __step_size__(self, delta_x,delta_l,r_t,t,params):
-    beta = params["beta"]
-    alpha = params["alpha"]
+  def __step_size__(self, delta_x,delta_l,r_t,t):
+    beta = self.params["beta"]
+    alpha = self.params["alpha"]
 
     if jnp.all(delta_l>=0):
         s_max = 1

@@ -49,13 +49,16 @@ class select_objective_box:
     self.selected_objective = self.cmbbox.get()
     dirs = os.listdir(os.path.join(RESULTPATH,self.selected_objective))
     values_dict = {}
-    for param in objective_properties_key[self.selected_objective]:
-      values_dict[param] = set()
-
+    
     for dir_name in dirs:
       params_dict = get_params_from_path(dir_name)
       for k,v in params_dict.items():
-        values_dict[k].add(v)
+        try:
+          values_dict[k].add(v)
+        except KeyError:
+          values_dict[k] = set()
+          values_dict[k].add(v)
+
     
     for param in self.params_box.keys():
       self.params_box[param].destroy()
@@ -88,6 +91,11 @@ class select_constraints_box:
     self.selected_constraints = None
     self.params_box = {}
     self.cmbbox.bind(" <<ComboboxSelected>> ",self.get_properties_of_constraints)
+
+  def pack_forget(self):
+    self.cmbbox.pack_forget()
+    self.frame.pack_forget()
+
 
   def get_constraints_names(self):
     dirs = os.listdir(os.path.join(RESULTPATH,self.function_box.selected_objective,self.function_box.get_values_of_params()))
@@ -150,6 +158,9 @@ class solver_notebook:
   
   def pack(self):
     self.notebook.pack()
+  
+  def pack_forget(self):
+    self.notebook.pack_forget()
 
 class page_content:
   def __init__(self,parent,problem_path) -> None:
@@ -206,11 +217,9 @@ class main_window:
     self.root = tk.Tk()
     self.root.geometry("400x800")
     self.select_objective_frame = select_objective_box(self.root)
-    self.select_objective_frame.pack()
-    self.select_constraints_frame = None
     self.set_constraints_button = tk.Button(self.root,text="set constraints",command = self.set_constraints)
+    self.select_constraints_frame = None
     self.set_solver_button = tk.Button(self.root,text = "set solver",command=self.set_solver)
-    self.set_constraints_button.pack()
     self.notebook = None
     self.page_add_button = tk.Button(self.root,text="add")
     self.page_remove_button = tk.Button(self.root,text="remove")
@@ -218,9 +227,28 @@ class main_window:
     self.option_window = None
     self.option_entries = {}
     self.show_result_button = tk.Button(self.root,text="Show",command=self.show_result)
+  
+    self.select_objective_frame.pack()
+    self.set_constraints_button.pack()
     
+  def clear(self):
+    if self.select_constraints_frame is not None:
+      self.select_constraints_frame.pack_forget()
+      self.select_constraints_frame = None
+      self.set_solver_button.pack_forget()
+    
+    if self.notebook is not None:
+      self.notebook.pack_forget()
+      self.notebook = None
+      self.page_add_button.pack_forget()
+      self.page_remove_button.pack_forget()
+      self.option_button.pack_forget()
+      self.show_result_button.pack_forget()
+
+
   
   def set_constraints(self):
+    self.clear()
     self.select_constraints_frame = select_constraints_box(self.root,self.select_objective_frame)
     self.select_constraints_frame.pack()
     self.set_solver_button.pack()
@@ -245,11 +273,12 @@ class main_window:
     constraints_properties = self.select_constraints_frame.get_values_of_params()
     problem_path = os.path.join(RESULTPATH,objective_name,objective_properties,constriants_name,constraints_properties)
     self.notebook = solver_notebook(self.root,problem_path=problem_path)
-    self.notebook.pack()
     self.page_add_button.config(command=self.notebook.add_page)
     self.page_add_button.update()
     self.page_remove_button.config(command=self.notebook.remove_page)
     self.page_remove_button.update()
+
+    self.notebook.pack()
     self.page_add_button.pack()
     self.page_remove_button.pack()
     self.option_button.pack()

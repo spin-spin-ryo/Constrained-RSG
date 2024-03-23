@@ -6,6 +6,7 @@ import sys
 from utils.logger import logger
 import numpy as np
 PROXIMAL_METHODS = [PROXIMAL_GRADIENT_DESCENT,ACCELERATED_PROXIMAL_GRADIENT_DESCENT]
+QUASI_NEWTONS = [BFGS_QUASI_NEWTON,RANDOM_BFGS,SUBSPACE_QUASI_NEWTON]
 
 
 
@@ -71,15 +72,24 @@ def run_numerical_experiment(config):
                 log_interval=log_interval
                 )
   else:
-    solver.run(f=f,
-              x0=x0,
-              iteration=iteration,
-              params=solver_params,
-              save_path=save_path,
-              log_interval=log_interval
-              )
+    if use_prox:
+      solver.run(f=f,
+                 prox=prox,
+                 x0=x0,
+                 iteration=iteration,
+                 params=solver_params,
+                 save_path=save_path,
+                 log_interval=log_interval)
+    else:
+      solver.run(f=f,
+                x0=x0,
+                iteration=iteration,
+                params=solver_params,
+                save_path=save_path,
+                log_interval=log_interval
+                )
   solver.save_results(save_path)
-  nonzero_index = solver.save_values["time"] > 0
+  nonzero_index = solver.save_values["func_values"] != 0
   min_f_value = np.min(solver.save_values["func_values"][nonzero_index])
   execution_time = solver.save_values["time"][-1]
   values_dict = {
