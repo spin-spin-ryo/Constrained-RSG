@@ -14,6 +14,7 @@ class optimization_solver:
     self.f = None 
     self.f_grad = None
     self.xk = None
+    self.min_function_value = None
     self.dtype = dtype
     self.backward_mode = True
     self.finish = False
@@ -98,6 +99,7 @@ class optimization_solver:
     self.params = params
     self.check_count = 0
     self.save_values["func_values"][0] = self.f(self.xk)
+    self.min_function_value = self.save_values["func_values"][0]
     
   def __check_params__(self,params):
     all_params = True
@@ -138,6 +140,9 @@ class optimization_solver:
   def update_save_values(self,iter,**kwargs):
     for k,v in kwargs.items():
       self.save_values[k][iter] = v
+    
+    if self.save_values["func_values"][iter] < self.min_function_value:
+      self.min_function_value = self.save_values["func_values"][iter]
   
   def save_results(self,save_path):
     for k,v in self.save_values.items():

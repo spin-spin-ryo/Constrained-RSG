@@ -2,10 +2,13 @@
 from typing import Any
 import jaxlib
 import jax.numpy as jnp
+import jax.nn as nn
 from jax import jit
 from functools import partial
 import utils.jax_layers as F
 from jax.scipy.special import logsumexp
+from utils.calculate import BallProjection
+from algorithms.descent_method import BacktrackingAcceleratedProximalGD
 
 class Objective:
   def __init__(self,params):
@@ -236,6 +239,98 @@ class softmax(Objective):
     _,feature_num = self.params[0].shape
     _,class_num = self.params[1].shape
     return feature_num*class_num + class_num
+
+
+class robust_logistic(Objective):
+  # torch.log and torch.exp are bad
+  def __init__(self, params=[],delta = 0.1,inner_iteration = 100000,subproblem_eps = 1e-5):
+    self.inner_iteration = inner_iteration
+    self.subproblem_eps = subproblem_eps
+    self.delta = delta
+    super().__init__(params)
+
+  def __call__(self, w,u = None):
+    # Xの最後には列には1だけのものがある
+    # yは0,1で
+    # noiseは1以外のものに対して
+    func,prox,x0 = self.__set__inner_call__(w=w,u=u)
+    return -self.solve_subproblem(func=func,prox=prox,x0=x0,eps=self.subproblem_eps,iteration=self.inner_iteration)
+   
+  def __set__inner_call__(self,w,u=None):
+    X = self.params[0]
+    data_num,feature_num = X.shape
+    self._a_ = X@w
+      
+    if u is not None:
+      # u はmu_k/sqrt{n} u
+      def func(x_input):
+        return -self.__inner_projection_call__(x_input,u=u)
+      def prox(x,t):
+        return BallProjection(x,radius = self.delta)
+      x0 = jnp.zeros(u.shape[0],dtype = X.dtype)
+
+    else:
+      def func(x_input):
+        return -self.__inner_call__(x_input,w=w)
+      
+      def prox(x,t):
+        return BallProjection(x,radius = self.delta)
+      x0 = jnp.zeros(feature_num,dtype = X.dtype)
+    
+    return func,prox,x0
+  
+  @partial(jit,static_argnums = 0)
+  def __inner_call__(self,delta_X,w):
+    # y \in {1,-1}
+    a = self._a_ + delta_X@w
+    return jnp.mean(jnp.log(1 + jnp.exp(-self.params[1]*a)))
+  
+  @partial(jit,static_argnums = 0)
+  def __inner_projection_call__(self,alpha,u):
+    a = self._a_ + alpha@u
+    return jnp.mean(jnp.log(1 + jnp.exp(-self.params[1]*a)))
+  
+  def solve_subproblem(self,func,prox,x0,eps=1e-6,iteration = 10000):
+    inner_solver = BacktrackingAcceleratedProximalGD()
+    params = {
+      "restart":True,
+      "beta":0.8,
+      "alpha":0.3,
+      "backward":True,
+      "eps":eps
+    }
+    inner_solver.run(x0=x0,
+                     f = func,
+                     prox = prox,
+                     iteration=iteration,
+                     params = params,
+                     save_path="")
+    # logger.info(solver.get_iteration())
+    return inner_solver.min_function_value
+  
+  def solve_subproblem_solution(self,func,prox,x0,eps=1e-6,iteration = 10000):
+    inner_solver = BacktrackingAcceleratedProximalGD()
+    params = {
+      "restart":True,
+      "beta":0.8,
+      "alpha":0.3,
+      "backward":True,
+      "eps":eps
+    }
+    inner_solver.run(x0=x0,
+                     f = func,
+                     prox = prox,
+                     iteration=iteration,
+                     params = params,
+                     save_path="")
+    # logger.info(solver.get_iteration())
+    return inner_solver.xk
+  
+  def get_subproblem_solution(self, w,u = None):
+    func,prox,x0 = self.__set__inner_call__(w=w,u=u)
+    return self.solve_subproblem_solution(func=func,prox=prox,x0=x0,eps=self.subproblem_eps,iteration=self.inner_iteration)
+   
+
 
 class SparseGaussianProcess(Objective):
   # params = [(x_i,y_i),data_dim,reduced_data_size,kernel_mode]
