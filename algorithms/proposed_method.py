@@ -24,6 +24,7 @@ class RSGLC(constrained_optimization_solver):
                   "reduced_dim",
                   "alpha1",
                   "alpha2",
+                  "delta",
                   "beta",
                   "mode",
                   "backward"]
@@ -38,6 +39,7 @@ class RSGLC(constrained_optimization_solver):
     alpha1 = self.params["alpha1"]
     alpha2 = self.params["alpha2"]
     beta = self.params["beta"]
+    delta = self.params["delta"]
     Gk = self.get_active_constraints_grads(eps0)
     while self.reduced_dim-self.active_num < 5:
       self.reduced_dim += 10
@@ -56,19 +58,22 @@ class RSGLC(constrained_optimization_solver):
     else:
       Md = Mk.T@d
     if self.first_check:
-      alpha =self.__step_size__(Md,alpha2,beta)
+      alpha =self.__step_size__(Md,alpha2,beta,delta)
     else:
-      alpha = self.__step_size__(Md,alpha1,beta)
+      alpha = self.__step_size__(Md,alpha1,beta,delta)
     
     self.__update__(alpha*Md)
     return
     
-  def __step_size__(self,direction,alpha,beta):
+  def __step_size__(self,direction,alpha,beta,delta):
     while not self.con.is_feasible(self.xk + alpha*direction):
       alpha *= beta
       if alpha < 1e-30:
         return 0
-    return alpha
+    if self.f(self.xk + alpha*direction) - self.f(self.xk) < -delta:
+      return alpha
+    else:
+      return 0
   
   def __direction__(self,projected_grad,active_constraints_projected_grads,delta1,eps2,dim,reduced_dim):
     if active_constraints_projected_grads is None:

@@ -4,16 +4,16 @@ from environments import *
 save_path = "configs/config.json"
 
 # 以下設定
-objective_name = QUADRATIC
-constraints_name = NOCONSTRAINTS
-solver_name = GRADIENT_DESCENT
+objective_name = MATRIXFACTORIZATION_COMPLETION
+constraints_name = NONNEGATIVE
+solver_name = RSG_LC
 
 # 問題関連のパラメータ
 dim = 1000
 constraints_num = 0
 convex = False
-data_name = "random"
-rank = 0
+data_name = "movie"
+rank = 5
 threshold1 = 0
 threshold2 = 0
 activation = "relu"
@@ -29,13 +29,13 @@ threshold = 0
 # アルゴリズム関連のパラメータ
 backward_mode = True
 iteration = 1000
-log_interval = 1000
+log_interval = 10
 eps0 = 1e-4
 delta1 = 1e-10
 eps2 = 1e-10
-reduced_dim = 100
-alpha1 = 1e+10
-alpha2 = 1e+9
+reduced_dim = 500
+alpha1 = 100
+alpha2 = 100
 beta = 0.8
 mode = "random" 
 r = 0.5
