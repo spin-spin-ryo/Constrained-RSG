@@ -21,10 +21,10 @@ def get_minimum_eigenvalue(H):
 def get_maximum_eigenvalue(H):
     return jnp.max(jnp.linalg.eigvalsh(H))
 
-def line_search(xk,func,grad,dk,alpha,beta,loss = None):
+def line_search(xk,func,grad,dk,alpha,beta,loss = None,init_lr = 1):
   if loss is None:
     loss = func(xk)
-  lr = 1
+  lr = init_lr
   while loss - func(xk + lr*dk) < -alpha*lr*grad@dk:
     lr *= beta 
     if lr < 1e-12:

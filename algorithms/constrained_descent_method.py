@@ -1,7 +1,7 @@
 import time
 import numpy as np
 from algorithms.descent_method import optimization_solver,BacktrackingAcceleratedProximalGD
-from utils.calculate import nonnegative_projection
+from utils.calculate import nonnegative_projection,line_search
 from utils.logger import logger
 import jax.numpy as jnp
 from jax.lax import transpose
@@ -48,7 +48,7 @@ class constrained_optimization_solver(optimization_solver):
 class GradientProjectionMethod(constrained_optimization_solver):
   def __init__(self,dtype=jnp.float64) -> None:
     super().__init__(dtype)
-    self.params_key = ["eps","delta","alpha","beta","backward"]
+    self.params_key = ["eps","delta","lr","alpha","beta","backward"]
     self.lk = None
     # eps: active set
     # delta: gradient norm
@@ -66,6 +66,7 @@ class GradientProjectionMethod(constrained_optimization_solver):
     # 有効制約を保持しながら更新するともう少し高速になる
     eps = self.params["eps"]
     delta = self.params["delta"]
+    lr = self.params["lr"]
     alpha = self.params["alpha"]
     beta = self.params["beta"]
     # (*,n)
@@ -83,13 +84,18 @@ class GradientProjectionMethod(constrained_optimization_solver):
         Gk = Gk[use_index]
         d = self.__direction__(grad,Gk)
     
-    alpha = self.__step_size__(d,alpha,beta)
+    alpha = self.__step_size__(d,grad,alpha,beta)
     self.__update__(alpha*d)
 
-  def __step_size__(self, direction,alpha,beta):
+  def __step_size__(self, grad,direction,alpha,beta):
     while not self.con.is_feasible(self.xk + alpha*direction):
-      alpha *= beta
-    return alpha
+      lr *= beta
+    return line_search(xk = self.xk,
+                       func=self.f,
+                       grad=grad,
+                       dk = direction,
+                       alpha=alpha,
+                       beta = beta)
 
   def __direction__(self,grad,Gk):
     if len(Gk) != 0:

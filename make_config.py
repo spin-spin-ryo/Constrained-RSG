@@ -6,7 +6,7 @@ save_path = "configs/config.json"
 # 以下設定
 objective_name = MATRIXFACTORIZATION_COMPLETION
 constraints_name = NONNEGATIVE
-solver_name = RSG_LC
+solver_name = ACCELERATED_PROXIMAL_GRADIENT_DESCENT
 
 # 問題関連のパラメータ
 dim = 1000
@@ -28,8 +28,8 @@ threshold = 0
 
 # アルゴリズム関連のパラメータ
 backward_mode = True
-iteration = 1000
-log_interval = 10
+iteration = 10000
+log_interval = 100
 eps0 = 1e-4
 delta1 = 1e-10
 eps2 = 1e-10
