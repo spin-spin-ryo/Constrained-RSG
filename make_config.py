@@ -6,7 +6,7 @@ save_path = "configs/config.json"
 # 以下設定
 objective_name = MATRIXFACTORIZATION_COMPLETION
 constraints_name = NONNEGATIVE
-solver_name = ACCELERATED_PROXIMAL_GRADIENT_DESCENT
+solver_name = G_LC
 
 # 問題関連のパラメータ
 dim = 1000
@@ -31,13 +31,13 @@ backward_mode = True
 iteration = 10000
 log_interval = 100
 eps0 = 1e-4
-delta1 = 1e-10
-eps2 = 1e-10
-reduced_dim = 500
+delta1 = 1e-5
+eps2 = 1e-6
+reduced_dim = 13125
 alpha1 = 100
 alpha2 = 100
 beta = 0.8
-mode = "random" 
+mode = "identity" 
 r = 0.5
 
 alpha = 0.3
@@ -46,7 +46,7 @@ delta = 1e-4
 restart = True
 mu = 1.5
 eps_feas = 1e-4
-lr = 0.1
+lr = 200
 
 config = {
   "objective":{

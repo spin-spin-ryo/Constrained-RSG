@@ -31,10 +31,10 @@ def line_search(xk,func,grad,dk,alpha,beta,loss = None,init_lr = 1):
       return 0
   return lr
 
-def subspace_line_search(xk,func,projected_grad,dk,Mk,alpha,beta,loss = None):
+def subspace_line_search(xk,func,projected_grad,dk,Mk,alpha,beta,loss = None,init_lr=1):
     if loss is None:
       loss = func(xk)
-    lr = 1
+    lr = init_lr
     proj_dk = transpose(Mk,(1,0))@dk
     while loss - func(xk + lr*proj_dk) < -alpha*lr*projected_grad@dk:
       lr *= beta

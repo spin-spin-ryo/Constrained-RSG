@@ -84,18 +84,19 @@ class GradientProjectionMethod(constrained_optimization_solver):
         Gk = Gk[use_index]
         d = self.__direction__(grad,Gk)
     
-    alpha = self.__step_size__(d,grad,alpha,beta)
-    self.__update__(alpha*d)
+    lr = self.__step_size__(grad,d,lr,alpha,beta)
+    self.__update__(lr*d)
 
-  def __step_size__(self, grad,direction,alpha,beta):
-    while not self.con.is_feasible(self.xk + alpha*direction):
+  def __step_size__(self, grad,direction,lr,alpha,beta):
+    while not self.con.is_feasible(self.xk + lr*direction):
       lr *= beta
     return line_search(xk = self.xk,
                        func=self.f,
                        grad=grad,
                        dk = direction,
                        alpha=alpha,
-                       beta = beta)
+                       beta = beta,
+                       init_lr=lr)
 
   def __direction__(self,grad,Gk):
     if len(Gk) != 0:
