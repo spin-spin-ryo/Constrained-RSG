@@ -7,11 +7,14 @@ def get_activation(activation_name):
     activation = nn.sigmoid
   elif activation_name == "relu":
     activation = nn.relu
-  elif activation_name == "mish":
-    activation = nn.mish
+  elif activation_name == "swish":
+    activation = nn.swish
   else:
     raise ValueError("No activation")
   return activation
+
+def mish(x):
+  return x*nn.tan
 
 def get_criterion(criterion_name):
   if criterion_name == "CrossEntropy":

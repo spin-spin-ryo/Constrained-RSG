@@ -292,8 +292,6 @@ class RSGLC_norandom(constrained_optimization_solver):
       return True
     return jnp.min(self.lk) > -eps2
    
-  
-
 class RSGNC(RSGLC):
   def __init__(self, dtype=jnp.float64) -> None:
     super().__init__(dtype)
@@ -302,9 +300,9 @@ class RSGNC(RSGLC):
                   "eps2",
                   "dim",
                   "reduced_dim",
-                  "alpha1",
-                  "alpha2",
+                  "alpha",
                   "beta",
+                  "delta",
                   "mode",
                   "r",
                   "backward"]
@@ -317,8 +315,8 @@ class RSGNC(RSGLC):
     dim = self.params["dim"]
     reduced_dim = self.params["reduced_dim"]
     mode = self.params["mode"]
-    alpha1 = self.params["alpha1"]
-    alpha2 = self.params["alpha2"]
+    alpha = self.params["alpha"]
+    delta = self.params["delta"]
     beta = self.params["beta"]
     r = self.params["r"]
     Gk = self.get_active_constraints_grads(eps0)
@@ -333,10 +331,7 @@ class RSGNC(RSGLC):
       Md = d
     else:
       Md = Mk.T@d
-    if self.first_check:
-      alpha =self.__step_size__(Md,alpha2,beta)
-    else:
-      alpha = self.__step_size__(Md,alpha1,beta)
+    alpha =self.__step_size__(Md,alpha,beta,delta)
     
     self.__update__(alpha*Md)
     return
