@@ -7,6 +7,8 @@ def get_activation(activation_name):
     activation = nn.sigmoid
   elif activation_name == "relu":
     activation = nn.relu
+  elif activation_name == "mish":
+    activation = nn.mish
   else:
     raise ValueError("No activation")
   return activation
