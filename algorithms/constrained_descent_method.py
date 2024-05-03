@@ -52,8 +52,8 @@ class GradientProjectionMethod(constrained_optimization_solver):
     self.lk = None
     # eps: active set
     # delta: gradient norm
-    # alpha: stepsize
-    # beta: linesearch
+    # lr: stepsize
+    # alpha,beta: linesearch
 
   def get_activate_grads(self,eps):
     # output: (*,n)

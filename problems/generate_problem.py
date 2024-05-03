@@ -169,7 +169,11 @@ def generate_quadratic(properties):
                 c = 0
                 os.makedirs(Quadratic_data_path,exist_ok=True)
                 jnp.save(os.path.join(Quadratic_data_path,filename_Q),Q)
-                jnp.save(os.path.join(Quadratic_data_path,filename_b),b)                    
+                jnp.save(os.path.join(Quadratic_data_path,filename_b),b)   
+    elif data_name == "simple":
+        Q = jnp.eye(dim)/2
+        b = jnp.zeros(dim)
+        c = 0                 
     params = [Q,b,c]
     f = QuadraticFunction(params=params)
     return f
