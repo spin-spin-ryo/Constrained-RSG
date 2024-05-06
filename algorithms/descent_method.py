@@ -147,6 +147,7 @@ class optimization_solver:
   def save_results(self,save_path):
     for k,v in self.save_values.items():
       jnp.save(os.path.join(save_path,k+".npy"),v)
+    jnp.save(os.path.join(save_path,"solution.npy"),self.xk)
   
   def __update__(self,d):
     self.xk += d

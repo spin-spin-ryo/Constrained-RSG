@@ -88,7 +88,7 @@ def L1projection(x,radius = 1):
     x_ = x.copy()
     
     x_/=radius
-    y = jnp.sort(jnp.abs(x_))[0]
+    y = jnp.sort(jnp.abs(x_))
     l = 0
     r = y.shape[0]
     while r-l > 1:
