@@ -4,6 +4,7 @@ from jax.lax import transpose
 from jax import random,jvp,grad
 from environments import key
 import numpy as np
+import jax
 
 def hessian(f):
     return jacfwd(jacrev(f))
@@ -81,30 +82,21 @@ def BoxProjection(x,radius = 1):
 def identity_prox(x,t):
   return x
 
+def projection_unit_simplex(x: jnp.ndarray) -> jnp.ndarray:
+  s = 1.0
+  n_features = x.shape[0]
+  u = jnp.sort(x)[::-1]
+  cumsum_u = jnp.cumsum(u)
+  ind = jnp.arange(n_features) + 1
+  cond = s / ind + (u - cumsum_u / ind) > 0
+  idx = jnp.count_nonzero(cond)
+  return jax.nn.relu(s / idx + (x - cumsum_u[idx - 1] / idx))
+
+def projection_simplex(x: jnp.ndarray, value: float = 1.0) -> jnp.ndarray:
+  return value * projection_unit_simplex(x / value)
+
 def L1projection(x,radius = 1):
-  if jnp.linalg.norm(x,ord=1)<=radius:
-    return x
-  else:
-    x_ = x.copy()
-    
-    x_/=radius
-    y = jnp.sort(jnp.abs(x_))
-    l = 0
-    r = y.shape[0]
-    while r-l > 1:
-      m = int((l+r)/2)
-      lam = y[m]
-      z = y -lam
-      index = z >0
-      if jnp.sum(z[index])>1:
-        l = m
-      else:
-        r = m
-    lam = (jnp.sum(y[r:]) -1)/y[r:].shape[0]
-    z = np.zeros(y.shape,dtype = y.dtype)
-    z[x_>lam] = (x_-lam)[x_ >lam]
-    z[x_<-lam] =(x_+lam)[x_ <-lam]
-    return jnp.array(z*radius)
+  return jnp.sign(x) * projection_simplex(jnp.abs(x), radius)
 
 def get_jvp(func,x,M):
   if M is not None:
