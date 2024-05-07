@@ -28,8 +28,8 @@ def get_solver(solver_name,dtype):
         solver = RSGLC(dtype=dtype)
     elif solver_name == G_LC:
         solver = RSGLC_norandom(dtype=dtype)
-    elif solver_name == LINESEARCH_RSGLC:
-        solver = linesearchRSGLC(dtype=dtype)
+    elif solver_name == G_NC:
+        solver = RSGNC_norandom(dtype=dtype)
     elif solver_name == RSG_NC:
         solver = RSGNC(dtype=dtype)
     else:

@@ -373,6 +373,79 @@ class RSGNC(RSGLC):
     else:
       return direction1
 
+class RSGNC_norandom(RSGLC_norandom):
+  def __init__(self, dtype=jnp.float64) -> None:
+    super().__init__(dtype)
+    self.params_key = ["eps0",
+                  "delta1",
+                  "eps2",
+                  "dim",
+                  "alpha",
+                  "beta",
+                  "delta",
+                  "r",
+                  "backward"]
+      
+  def __iter_per__(self):
+    # 後でx.gradについて確認
+    eps0 = self.params["eps0"]
+    delta1 = self.params["delta1"]
+    eps2 = self.params["eps2"]
+    dim = self.params["dim"]
+    alpha = self.params["alpha"]
+    delta = self.params["delta"]
+    beta = self.params["beta"]
+    r = self.params["r"]
+    Gk = self.get_active_constraints_grads(eps0)
+    Mk = None
+    GkMk = self.get_projected_gradient_by_matmul(Mk,Gk)
+    # M_k^\top \nabla f
+    projected_grad = self.__first_order_oracle__(self.xk)
+    d = self.__direction__(projected_grad,active_constraints_projected_grads=GkMk,delta1=delta1,eps2=eps2,dim=dim,r = r)
+    if d is None:
+      return
+    alpha =self.__step_size__(d,alpha,beta,delta)
+    
+    self.__update__(alpha*d)
+    return
+  
+  def __direction__(self,projected_grad,active_constraints_projected_grads,delta1,eps2,dim,r):
+    if active_constraints_projected_grads is None:
+      self.lk = None
+      A = None
+      direction1 =  -projected_grad
+    else:
+      GMMf = active_constraints_projected_grads@projected_grad
+      GMMG = active_constraints_projected_grads@active_constraints_projected_grads.T
+      wk = jnp.linalg.norm(active_constraints_projected_grads,axis = 1)
+      GMMG_inv = jnp.linalg.inv(GMMG)
+      rk = r/jnp.sqrt(GMMG_inv@wk@wk)
+      projected_grad_norm = jnp.linalg.norm(projected_grad)
+      v = rk*wk/projected_grad_norm
+      self.lk = -GMMG_inv@GMMf
+      lk_bar = -(GMMG_inv@(inverse_xy(v,self.lk)@(GMMf - rk*projected_grad_norm*wk)))
+      direction1 = -projected_grad - active_constraints_projected_grads.T@lk_bar
+
+    self.grad_norm = jnp.linalg.norm(direction1)
+    if self.check_norm(direction1,delta1):
+      self.first_check = True
+      if self.check_lambda(eps2):
+        self.finish = True
+        return None
+      else:
+        if -jnp.sum(self.lk) >= eps2/2:
+          s = jnp.ones(self.lk.shape[0],dtype= self.dtype)
+        else:
+          s = np.ones(self.lk.shape[0], dtype= self.dtype)
+          negative_sum = jnp.sum(self.lk[self.lk<0])
+          positive_sum = jnp.sum(self.lk[self.lk>0])
+          s[self.lk>0] = -negative_sum/positive_sum/2
+          s = jnp.array(s)
+        direction2 = -eps2*active_constraints_projected_grads.T@(GMMG_inv@s)
+        return direction2
+    else:
+      return direction1
+
 class RSRGF(zeroth_solver):
   def __init__(self, dtype=jnp.float64) -> None:
     super().__init__(dtype)
