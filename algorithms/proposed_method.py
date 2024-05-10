@@ -52,7 +52,7 @@ class RSGLC(constrained_optimization_solver):
     self.__update__(alpha*Md)
     return
     
-  def __step_size__(self,direction,alpha,beta,delta):
+  def __step_size__(self,direction,alpha,beta):
     while not self.con.is_feasible(self.xk + alpha*direction):
       alpha *= beta
       if alpha < 1e-30:
@@ -182,19 +182,17 @@ class RSGLC_norandom(constrained_optimization_solver):
     self.__update__(alpha*d)
     return
     
-  def __step_size__(self,direction,alpha,beta,delta):
+  def __step_size__(self,direction,alpha,beta):
     while not self.con.is_feasible(self.xk + alpha*direction):
       alpha *= beta
       if alpha < 1e-30:
         return 0
     while self.f(self.xk + alpha*direction) -self.f(self.xk) >0:
       alpha *= beta
-
-    if self.f(self.xk + alpha*direction) - self.f(self.xk) < -delta:
-      return alpha
-    else:
-      return 0
-  
+      if alpha < 1e-30:
+        return 0
+    return alpha
+    
   def __direction__(self,grad,active_constraints_grads,delta1,eps2,dim):
     if active_constraints_grads is None:
       self.lk = None

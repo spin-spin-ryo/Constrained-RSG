@@ -12,7 +12,7 @@ def get_constraints_config(constraints_name,allparams_config = None):
     config["dim"] = 1000
     config["constraints_num"] = 100
   elif constraints_name == NONNEGATIVE:
-    config["dim"] = 1000
+    config["dim"] = 13125
   elif constraints_name == QUADRATIC:
     config["data_name"] = "random"
     config["dim"] = 1000
@@ -22,7 +22,7 @@ def get_constraints_config(constraints_name,allparams_config = None):
     config["threshold2"] = 146000
   elif constraints_name == BALL:
     config["ord"] = 2
-    config["threshold"] = 12000
+    config["threshold"] = 50
   elif constraints_name == HUBER:
     config["delta"] =1
     config["threshold"] = 10

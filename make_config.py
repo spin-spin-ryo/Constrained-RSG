@@ -4,13 +4,14 @@ from template.objective_config import get_objective_config
 from template.constraints_config import get_constraints_config
 from template.algorithm_config import get_algorithm_parameters
 
-save_path = "configs/config.json"
 
 # Please edit the template/objective_config.py, template/constraints_config.py, template/algorithm_config.py and set parameters.
 
-objective_name = MATRIXFACTORIZATION_COMPLETION
-constraints_name = NONNEGATIVE
-solver_name = G_LC
+objective_name = CNN
+constraints_name = BALL
+solver_name = RSG_NC
+
+save_path = f"configs/CNN/config_{solver_name}.json"
 
 iteration = 10000
 log_interval = 100
