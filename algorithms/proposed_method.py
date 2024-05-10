@@ -1,5 +1,4 @@
 from algorithms.constrained_descent_method import constrained_optimization_solver
-from algorithms.zeroth_method import zeroth_solver
 from utils.calculate import inverse_xy,jax_randn,subspace_line_search
 from utils.logger import logger
 from utils.select import get_step_scheduler_func
@@ -22,9 +21,7 @@ class RSGLC(constrained_optimization_solver):
                   "eps2",
                   "dim",
                   "reduced_dim",
-                  "alpha1",
-                  "alpha2",
-                  "delta",
+                  "alpha",
                   "beta",
                   "mode",
                   "backward"]
@@ -36,16 +33,9 @@ class RSGLC(constrained_optimization_solver):
     eps2 = self.params["eps2"]
     dim = self.params["dim"]
     mode = self.params["mode"]
-    alpha1 = self.params["alpha1"]
-    alpha2 = self.params["alpha2"]
+    alpha = self.params["alpha"]
     beta = self.params["beta"]
-    delta = self.params["delta"]
     Gk = self.get_active_constraints_grads(eps0)
-    # while self.reduced_dim-self.active_num < 5:
-    #   self.reduced_dim += 10
-    #   if self.reduced_dim > dim:
-    #     self.reduced_dim = dim
-    #     break
     Mk = self.generate_matrix(dim,self.reduced_dim,mode)
     GkMk = self.get_projected_gradient_by_matmul(Mk,Gk)
     # M_k^\top \nabla f
@@ -57,10 +47,7 @@ class RSGLC(constrained_optimization_solver):
       Md = d
     else:
       Md = Mk.T@d
-    if self.first_check:
-      alpha =self.__step_size__(Md,alpha2,beta,delta)
-    else:
-      alpha = self.__step_size__(Md,alpha1,beta,delta)
+    alpha =self.__step_size__(Md,alpha,beta)
     
     self.__update__(alpha*Md)
     return
@@ -72,11 +59,10 @@ class RSGLC(constrained_optimization_solver):
         return 0
     while self.f(self.xk + alpha*direction) -self.f(self.xk) >0:
       alpha *= beta
-    if self.f(self.xk + alpha*direction) - self.f(self.xk) < -delta:
-      return alpha
-    else:
-      return 0
-  
+      if alpha < 1e-30:
+        return 0
+    return alpha
+    
   def __direction__(self,projected_grad,active_constraints_projected_grads,delta1,eps2,dim,reduced_dim):
     if active_constraints_projected_grads is None:
       self.lk = None
@@ -175,9 +161,7 @@ class RSGLC_norandom(constrained_optimization_solver):
                   "delta1",
                   "eps2",
                   "dim",
-                  "alpha1",
-                  "alpha2",
-                  "delta",
+                  "alpha",
                   "beta",
                   "backward"]
   
@@ -187,19 +171,14 @@ class RSGLC_norandom(constrained_optimization_solver):
     delta1 = self.params["delta1"]
     eps2 = self.params["eps2"]
     dim = self.params["dim"]
-    alpha1 = self.params["alpha1"]
-    alpha2 = self.params["alpha2"]
+    alpha = self.params["alpha"]
     beta = self.params["beta"]
-    delta = self.params["delta"]
     Gk = self.get_active_constraints_grads(eps0)
     Gk = self.get_projected_gradient_by_matmul(None,Gk)
     # M_k^\top \nabla f
     grad = self.__first_order_oracle__(self.xk)
     d = self.__direction__(grad,active_constraints_grads=Gk,delta1=delta1,eps2=eps2,dim=dim)
-    if self.first_check:
-      alpha =self.__step_size__(d,alpha2,beta,delta)
-    else:
-      alpha = self.__step_size__(d,alpha1,beta,delta)
+    alpha =self.__step_size__(d,alpha,beta)
     self.__update__(alpha*d)
     return
     
@@ -302,7 +281,6 @@ class RSGNC(RSGLC):
                   "reduced_dim",
                   "alpha",
                   "beta",
-                  "delta",
                   "mode",
                   "r",
                   "backward"]
@@ -316,7 +294,6 @@ class RSGNC(RSGLC):
     reduced_dim = self.params["reduced_dim"]
     mode = self.params["mode"]
     alpha = self.params["alpha"]
-    delta = self.params["delta"]
     beta = self.params["beta"]
     r = self.params["r"]
     Gk = self.get_active_constraints_grads(eps0)
@@ -331,7 +308,7 @@ class RSGNC(RSGLC):
       Md = d
     else:
       Md = Mk.T@d
-    alpha =self.__step_size__(Md,alpha,beta,delta)
+    alpha =self.__step_size__(Md,alpha,beta)
     
     self.__update__(alpha*Md)
     return
@@ -382,7 +359,6 @@ class RSGNC_norandom(RSGLC_norandom):
                   "dim",
                   "alpha",
                   "beta",
-                  "delta",
                   "r",
                   "backward"]
       
@@ -393,7 +369,6 @@ class RSGNC_norandom(RSGLC_norandom):
     eps2 = self.params["eps2"]
     dim = self.params["dim"]
     alpha = self.params["alpha"]
-    delta = self.params["delta"]
     beta = self.params["beta"]
     r = self.params["r"]
     Gk = self.get_active_constraints_grads(eps0)
@@ -404,7 +379,7 @@ class RSGNC_norandom(RSGLC_norandom):
     d = self.__direction__(projected_grad,active_constraints_projected_grads=GkMk,delta1=delta1,eps2=eps2,dim=dim,r = r)
     if d is None:
       return
-    alpha =self.__step_size__(d,alpha,beta,delta)
+    alpha =self.__step_size__(d,alpha,beta)
     
     self.__update__(alpha*d)
     return
@@ -446,70 +421,3 @@ class RSGNC_norandom(RSGLC_norandom):
     else:
       return direction1
 
-class RSRGF(zeroth_solver):
-  def __init__(self, dtype=jnp.float64) -> None:
-    super().__init__(dtype)
-    self.step_scheduler_func = None
-    self.params_key = [
-      "lr",
-      "sample_size",
-      "reduced_dim",
-      "mu",
-      "schedule",
-      "central",
-      "projection"
-    ]
-  
-  def __run_init__(self, f, x0, iteration, params):
-    super().__run_init__(f, x0, iteration, params)
-    self.step_scheduler_func = get_step_scheduler_func(params["schedule"])
-
-  def __direction__(self,loss):
-    reduced_dim = self.params["reduced_dim"]
-    sample_size = self.params["sample_size"]
-    mu = self.params["mu"]
-    dim = self.xk.shape[0]
-    P = jax_randn(dim,reduced_dim,dtype = self.dtype)/(dim**0.5)
-    subspace_dir = None
-    if self.params["projection"]:
-      U = jax_randn(sample_size,reduced_dim+1,dtype = self.dtype)/(sample_size**0.5)
-      U = U.at[:, 0].set(1)
-    else:
-      U = jax_randn(sample_size,reduced_dim,dtype = self.dtype)/(sample_size**0.5)
-    
-    if self.params["central"]:
-      if self.params["projection"]:
-        for i in range(sample_size):
-          m = mu*P@U[i,1:]
-          g1 = self.func(self.xk + m,u= mu*U[i])
-          g2 = self.func(self.xk - m,u= mu*U[i])
-          if subspace_dir is None:
-            subspace_dir = (g1 - g2)/(2*mu) * U[i,1:]
-          else:
-            subspace_dir += (g1 - g2)/(2*mu) * U[i,1:]
-      else:
-        for i in range(sample_size):
-          m = mu*P@U[i]
-          g1 = self.func(self.xk + m)
-          g2 = self.func(self.xk - m)
-          if subspace_dir is None:
-            subspace_dir = (g1 - g2)/(2*mu) * U[i]
-          else:
-            subspace_dir += (g1 - g2)/(2*mu) * U[i]
-    else:
-      for i in range(sample_size):
-        g1 = self.func(self.xk + m)
-        if subspace_dir is None:
-          subspace_dir = (g1 - loss.item())/mu * U[i]
-        else:
-          subspace_dir += (g1 - loss.item())/mu * U[i]
-    return - P@subspace_dir
-
-  def __step_size__(self, iter):
-    return self.step_scheduler_func(iter)*self.params["lr"]
-    
-  def __iter_per__(self, iter):
-    loss = self.save_values["func_values"][iter]
-    dk = self.__direction__(loss)
-    lr = self.__step__(iter)
-    self.__update__(lr*dk)
