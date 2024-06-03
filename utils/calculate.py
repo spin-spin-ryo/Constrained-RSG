@@ -1,4 +1,4 @@
-from jax import jacrev,jacfwd
+from jax import jacrev,jacfwd,jit
 import jax.numpy as jnp
 from jax.lax import transpose
 from jax import random,jvp,grad
@@ -61,18 +61,18 @@ def jax_randn(*args,dtype = jnp.float32):
    key, _ = random.split(key)
    return P
 
+@jit
 def nonnegative_projection(x,t):
-    y = np.zeros(x.size,dtype=x.dtype)
-    index = x > 0
-    y[index] = x[index] 
-    return jnp.array(y)
+    return jnp.maximum(x, 0)
 
+@jit
 def BallProjection(x,radius = 1):
     if x@x <= radius*radius:
         return x
     else:
         return (radius)*x/jnp.linalg.norm(x)
 
+@jit
 def BoxProjection(x,radius = 1):
     y = np.array(x.copy())
     y[y>radius] = radius

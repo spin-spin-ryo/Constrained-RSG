@@ -43,6 +43,7 @@ class optimization_solver:
         z = self.f(x)
         for i in range(dim):
           d[i] = (self.f(x + h*e) - z)/h
+          e = jnp.roll(e,1)
         x_grad = jnp.array(d)
       else:
         raise ValueError(f"{self.backward_mode} is not implemented.")
