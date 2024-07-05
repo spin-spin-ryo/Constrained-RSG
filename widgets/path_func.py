@@ -26,7 +26,9 @@ FORMAL_LABEL = {
   RSG_LC:"proposed",
   RSG_NC:"proposed",
   LINESEARCH_RSGLC:"proposed(linesearch)",
-  G_LC:r"proposed($M_k = I$)"
+  G_LC:r"proposed ($M_k = I$)",
+  G_NC:r"proposed ($M_k = I$)",
+  DYNAMIC_BARRIER:"Dynamic"
 }
 
 MARKERS = {
@@ -48,7 +50,9 @@ MARKERS = {
   RSG_LC:"",
   RSG_NC:"",
   LINESEARCH_RSGLC:"",
-  G_LC:""
+  G_LC:"",
+  G_NC:"",
+  DYNAMIC_BARRIER:"+"
 }
 
 MARKERS_LIST = ["",
@@ -117,13 +121,12 @@ def show_result_with_option(result_pathes,options):
           solver_name = result_path.split(SLASH)[-2]
           param_dir = result_path.split(SLASH)[-1]
           param_dict = get_params_from_path(param_dir)
-          if solver_name == "Proposed":
-            matrix_size = param_dict["matrix_size"]
+          if solver_name in [RSG_NC,RSG_LC]:
             reduced_dim = param_dict["reduced_dim"]
             if are_all_proposed:
-              labeled[result_path] = r"$(d = {}, m = {})$".format(reduced_dim,matrix_size)
+              labeled[result_path] = r"$(q = {})$".format(reduced_dim)
             else:
-              labeled[result_path] = FORMAL_LABEL[solver_name]+r"$(d = {}, m = {})$".format(reduced_dim,matrix_size)
+              labeled[result_path] = FORMAL_LABEL[solver_name]+r" $(q = {})$".format(reduced_dim)
           else:
             labeled[result_path] = FORMAL_LABEL[solver_name]
                 
